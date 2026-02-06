@@ -24,9 +24,8 @@ app.prepare().then(() => {
   setupSocketIO(io);
 
   // Handle all other routes with Next.js
-  server.all(/(.*)/, (req, res) => {
-    const parsedUrl = parse(req.url!, true);
-    return handle(req, res, parsedUrl);
+  server.all('*', (req, res) => {
+    return handle(req, res);
   });
 
   httpServer.listen(port, () => {
