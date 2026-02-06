@@ -6,6 +6,7 @@ import { socket } from "@/lib/socket";
 import { CanvasBoard, CanvasBoardRef } from "@/components/CanvasBoard";
 import { ChatBox } from "@/components/ChatBox";
 import { RoundResultOverlay } from "@/components/RoundResultOverlay";
+import { GameResultOverlay } from "@/components/GameResultOverlay";
 import { PlayerDetailModal } from "@/components/PlayerDetailModal";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarConfig } from "@/components/Avatar";
@@ -357,8 +358,13 @@ export default function RoomPage() {
                             />
                         )}
 
-                        {/* Game End Overlay (Placeholder) */}
-                        {/* {gameState.state === 'GAME_END' && <GameEndOverlay ... />} */}
+                        {/* Game End Overlay */}
+                        {gameState.state === 'GAME_END' && (
+                            <GameResultOverlay
+                                players={gameState.players}
+                                onBackToLobby={() => window.location.href = '/'}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

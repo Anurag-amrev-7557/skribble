@@ -345,15 +345,17 @@ export class Room {
         this.turnIndex++;
 
         if (this.turnIndex >= playerIds.length) {
-            console.log(`[Method: endTurn] End of Round reached! Incrementing round.`);
-            // End of Round
-            this.round++;
-            this.turnIndex = 0;
+            console.log(`[Method: endTurn] End of Round reached!`);
 
-            if (this.round > this.totalRounds) {
+            // Check if game should end
+            if (this.round >= this.totalRounds) {
                 this.endGame();
                 return;
             }
+
+            // End of Round - Increment
+            this.round++;
+            this.turnIndex = 0;
         }
 
         console.log(`[Method: endTurn] AFTER Increment - Round: ${this.round}, TurnIndex: ${this.turnIndex}`);
