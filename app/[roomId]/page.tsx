@@ -459,7 +459,10 @@ export default function RoomPage() {
                         autoComplete="off"
                         onFocus={() => {
                             setIsInputFocused(true);
-                            window.scrollTo({ top: 0, behavior: 'instant' });
+                            setTimeout(() => {
+                                window.scrollTo(0, 0);
+                                document.body.scrollTop = 0;
+                            }, 100);
                         }}
                         onBlur={() => setIsInputFocused(false)}
                     />
