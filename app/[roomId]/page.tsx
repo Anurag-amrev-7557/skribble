@@ -34,6 +34,7 @@ export default function RoomPage() {
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
 
+
     const [gameState, setGameState] = useState<any>({
         players: [],
         state: 'WAITING',
@@ -145,12 +146,11 @@ export default function RoomPage() {
     });
 
     return (
-        <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
-            grid-cols-2 
-            ${isInputFocused
-                ? (isDrawer ? 'grid-rows-[1fr_auto_auto]' : 'grid-rows-[1fr_auto]') // Focused: Canvas (1fr), Toolbar/Input (Auto)
-                : (isDrawer ? 'grid-rows-[auto_auto_1fr_auto]' : 'grid-rows-[auto_1fr_auto]')} // Normal: Canvas (Auto), Chat (1fr), Input (Auto)
-            md:grid-cols-[300px_1fr_320px] md:grid-rows-1 overscroll-none`}>
+        <div className={`
+            ${isInputFocused ? 'flex flex-col h-[100dvh] justify-start' : 'grid h-[100dvh] grid-cols-2 md:grid-cols-[300px_1fr_320px] md:grid-rows-1'}
+            bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
+            ${!isInputFocused ? (isDrawer ? 'grid-rows-[auto_auto_1fr_auto]' : 'grid-rows-[auto_1fr_auto]') : ''} 
+            overscroll-none`}>
 
             {/* players AREA */}
             <div className={`
@@ -222,16 +222,11 @@ export default function RoomPage() {
 
             {/* Main Area: Header + Canvas */}
             <div className={`
-                row-start-1 col-span-2 
-                md:row-start-1 md:col-start-2 md:col-span-1 
-                flex flex-col relative 
-                ${isInputFocused ? 'fixed top-0 left-0 right-0 bottom-0 z-40 bg-background' : 'h-[55vh]'} 
-                md:h-auto md:static md:block border-b md:border-b-0 border-black/10`}>
+                ${isInputFocused ? 'flex-none w-full' : 'row-start-1 col-span-2 md:row-start-1 md:col-start-2 md:col-span-1'}
+                flex flex-col relative ${isInputFocused ? 'h-[40vh]' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
 
                 {/* Header (Floating) */}
-                <div className={`
-                    ${isInputFocused ? 'fixed top-0 left-0 right-0 z-[60] bg-white/95 dark:bg-zinc-900/95 backdrop-blur shadow-sm' : 'relative'}
-                    h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300`}>
+                <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
                     {/* LEFT: Clock + Round */}
                     <div className="flex items-center">
                         <div className="md:hidden flex flex-col items-center gap-0.5">
@@ -321,9 +316,7 @@ export default function RoomPage() {
                 </div>
 
                 {/* Canvas Area */}
-                <div className={`
-                    flex-1 md:p-6 pt-0 flex items-center justify-center relative overflow-hidden
-                    ${isInputFocused ? 'fixed top-16 bottom-[50px] left-0 right-0 z-10' : ''}`}>
+                <div className="flex-1 md:p-6 pt-0 flex items-center justify-center relative overflow-hidden">
                     <div className="w-full h-full max-w-[1200px] bg-white md:rounded-3xl shadow-lg md:shadow-2xl shadow-indigo-500/10 overflow-hidden border-2 md:border-4 border-white dark:border-zinc-800 ring-1 ring-black/5 relative transition-all touch-none">
                         <CanvasBoard
                             ref={canvasRef}
@@ -419,7 +412,7 @@ export default function RoomPage() {
             {/* Mobile Drawing Toolbar (Separate Row) */}
             {isDrawer && !isPrivateRoomLobby && (
                 <div className={`
-                    ${isInputFocused ? 'row-start-2' : 'row-start-2'} col-span-2 
+                    ${isInputFocused ? 'hidden' : 'row-start-2 col-span-2'} 
                     md:hidden 
                     w-full bg-background border-y border-black/10 flex items-center justify-center p-0 md:p-2 z-30`}>
                     <DrawingToolbar
@@ -445,12 +438,10 @@ export default function RoomPage() {
             </div>
 
             {/* Mobile Input Bar */}
-            {/* Input Bar is absolutely positioned when focused to ensure it's above the keyboard */}
             <div className={`
-                ${isInputFocused
-                    ? 'fixed bottom-0 left-0 right-0 z-[70] bg-background' // Fixed at bottom
-                    : (isDrawer ? 'row-start-4' : 'row-start-3') // Regular grid flow
-                } col-span-2 md:hidden w-full bg-background border-t transition-all duration-200`}>
+                ${isInputFocused ? 'flex-none w-full order-last' : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'}
+                md:hidden
+                w-full bg-background border-t z-50 transition-all duration-200`}>
                 <form onSubmit={(e) => {
                     e.preventDefault();
                     const form = e.currentTarget;

@@ -24,13 +24,6 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icon.png",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false, // Prevent zoom on input focus
-    interactiveWidget: 'resizes-content',
-  },
 };
 
 export default function RootLayout({
