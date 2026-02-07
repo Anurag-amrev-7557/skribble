@@ -439,7 +439,7 @@ export default function RoomPage() {
 
             {/* Mobile Input Bar */}
             <div className={`
-                ${isInputFocused ? 'flex-none w-full order-last' : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'}
+                ${isInputFocused ? 'flex-none w-full order-last mt-2' : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'}
                 md:hidden
                 w-full bg-background border-t z-50 transition-all duration-200`}>
                 <form onSubmit={(e) => {
@@ -457,7 +457,10 @@ export default function RoomPage() {
                         placeholder="Type your guess here..."
                         className="flex-1 h-12 px-4 bg-muted/50 focus:outline-none shadow-sm"
                         autoComplete="off"
-                        onFocus={() => setIsInputFocused(true)}
+                        onFocus={() => {
+                            setIsInputFocused(true);
+                            window.scrollTo({ top: 0, behavior: 'instant' });
+                        }}
                         onBlur={() => setIsInputFocused(false)}
                     />
                     <Button
