@@ -145,12 +145,12 @@ export default function RoomPage() {
     });
 
     return (
-        <div className={`grid h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
+        <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
             grid-cols-2 
             ${isInputFocused
                 ? (isDrawer ? 'grid-rows-[1fr_auto_auto]' : 'grid-rows-[1fr_auto]') // Focused: Canvas (1fr), Toolbar/Input (Auto)
                 : (isDrawer ? 'grid-rows-[auto_auto_1fr_auto]' : 'grid-rows-[auto_1fr_auto]')} // Normal: Canvas (Auto), Chat (1fr), Input (Auto)
-            md:grid-cols-[300px_1fr_320px] md:grid-rows-1`}>
+            md:grid-cols-[300px_1fr_320px] md:grid-rows-1 overscroll-none`}>
 
             {/* players AREA */}
             <div className={`
@@ -220,15 +220,14 @@ export default function RoomPage() {
                 )}
             </div>
 
-
             {/* Main Area: Header + Canvas */}
             <div className={`
                 row-start-1 col-span-2 
                 md:row-start-1 md:col-start-2 md:col-span-1 
-                flex flex-col relative ${isInputFocused ? 'h-full flex-1 pt-16 md:pt-0' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
+                flex flex-col relative ${isInputFocused ? 'h-full flex-1' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
 
                 {/* Header (Floating) */}
-                <div className="fixed top-0 left-0 right-0 z-[60] md:static h-16 md:h-20 flex items-center justify-between px-2 md:px-8 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
+                <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
                     {/* LEFT: Clock + Round */}
                     <div className="flex items-center">
                         <div className="md:hidden flex flex-col items-center gap-0.5">
