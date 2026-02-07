@@ -69,8 +69,10 @@ export const setupSocketIO = (io: Server) => {
 
         // Draw event
         socket.on('draw-stroke', ({ roomId, stroke }: { roomId: string; stroke: any }) => {
-            // console.log(`Broadcasting stroke to ${roomId} from ${socket.id}`);
-            socket.to(roomId).emit('draw-stroke', stroke);
+            const room = gameManager.getRoom(roomId);
+            if (room && room.currentDrawer === socket.id && room.state === 'DRAWING') {
+                socket.to(roomId).emit('draw-stroke', stroke);
+            }
         });
 
         // Start Game event
@@ -78,10 +80,23 @@ export const setupSocketIO = (io: Server) => {
             console.log(`Received start-game request for room ${roomId} from ${socket.id}`);
             const room = gameManager.getRoom(roomId);
             if (room) {
-                console.log(`Room found: ${roomId}. Calling startGame...`);
-                room.startGame();
+                // Host check? Ideally yes, but Room.ts doesn't enforce strict host check for startGame publicly yet?
+                // Actually start-game usually implied host.
+                // For safety, let's assume UI handles hiding button, and server trusts for now or we check if (room.hostId === socket.id)
+                if (room.hostId === socket.id) {
+                    console.log(`Room found: ${roomId}. Calling startGame...`);
+                    room.startGame();
+                }
             } else {
                 console.error(`Room ${roomId} not found for start-game request`);
+            }
+        });
+
+        // Restart Game Event
+        socket.on('request-restart', ({ roomId }: { roomId: string }) => {
+            const room = gameManager.getRoom(roomId);
+            if (room) {
+                room.restartGame();
             }
         });
 
@@ -90,6 +105,14 @@ export const setupSocketIO = (io: Server) => {
             const room = gameManager.getRoom(roomId);
             if (room) {
                 room.handleMessage(socket.id, text);
+            }
+        });
+
+        // Vote Kick Event
+        socket.on('vote-kick', ({ roomId, targetId }: { roomId: string; targetId: string }) => {
+            const room = gameManager.getRoom(roomId);
+            if (room) {
+                room.voteKick(socket.id, targetId);
             }
         });
 
@@ -112,6 +135,16 @@ export const setupSocketIO = (io: Server) => {
         // Clear Canvas
         socket.on('clear-canvas', ({ roomId }: { roomId: string }) => {
             socket.to(roomId).emit('clear-canvas');
+        });
+
+        // Fill Canvas
+        socket.on('fill-canvas', ({ roomId, x, y, color }: { roomId: string, x: number, y: number, color: string }) => {
+            socket.to(roomId).emit('fill-canvas', { x, y, color });
+        });
+
+        // Undo Last Stroke
+        socket.on('undo-last-stroke', ({ roomId }: { roomId: string }) => {
+            socket.to(roomId).emit('undo-last-stroke');
         });
 
         // Disconnect

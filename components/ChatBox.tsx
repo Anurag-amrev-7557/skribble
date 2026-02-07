@@ -9,9 +9,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface ChatBoxProps {
     roomId: string;
     playerName: string;
+    onSound?: (type: 'chat' | 'guess-correct' | 'join' | 'leave') => void;
 }
 
-export function ChatBox({ roomId, playerName }: ChatBoxProps) {
+export function ChatBox({ roomId, playerName, onSound }: ChatBoxProps) {
     const [messages, setMessages] = useState<Array<{ sender: string; text: string; type?: 'system' | 'chat' | 'guess' }>>([]);
     const [input, setInput] = useState("");
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -21,6 +22,16 @@ export function ChatBox({ roomId, playerName }: ChatBoxProps) {
             console.log("ChatBox received:", msg);
             setMessages((prev) => [...prev, msg]);
             setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+            if (onSound) {
+                if (msg.type === 'system') {
+                    if (msg.text.includes('guessed the word')) onSound('guess-correct');
+                    else if (msg.text.includes('joined')) onSound('join');
+                    else if (msg.text.includes('left')) onSound('leave');
+                } else {
+                    onSound('chat');
+                }
+            }
         };
 
         socket.on("chat-message", handleMessage);

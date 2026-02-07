@@ -43,11 +43,13 @@ export class Room {
     // Timer stuff
     private timer: NodeJS.Timeout | null = null;
     public timeRemaining: number = 0;
+    public createdAt: number;
 
     constructor(id: string, io: Server, isPrivate: boolean = false) {
         this.id = id;
         this.io = io;
         this.players = new Map();
+        this.createdAt = Date.now();
         this.state = GameState.WAITING;
         this.currentDrawer = null;
         this.currentWord = null;
@@ -120,6 +122,17 @@ export class Room {
     removePlayer(id: string) {
         const player = this.players.get(id);
         const name = player ? player.name : "Unknown Player";
+
+        // Fix turn skipping:
+        // If the removed player is BEFORE the current turn index (or IS the current one),
+        // we need to decrement turnIndex so that when the array shifts, we don't skip the next person.
+        const playerIds = Array.from(this.players.keys());
+        const removedIndex = playerIds.indexOf(id);
+
+        if (removedIndex !== -1 && removedIndex <= this.turnIndex) {
+            this.turnIndex--;
+        }
+
         this.players.delete(id);
 
         if (this.hostId === id) {
@@ -274,6 +287,12 @@ export class Room {
         if (this.state !== GameState.SELECTING_WORD) return;
         if (playerId !== this.currentDrawer) return;
 
+        // Security Check: Ensure word is in the options
+        if (!this.wordOptions.includes(word)) {
+            console.warn(`[Security] Player ${playerId} tried to select invalid word: ${word}`);
+            return;
+        }
+
         if (this.timer) clearInterval(this.timer);
 
         this.currentWord = word;
@@ -374,6 +393,14 @@ export class Room {
         const player = this.players.get(playerId);
         if (!player) return;
 
+        // Rate Limiting (Spam Protection)
+        const now = Date.now();
+        if (now - player.lastMessageTime < 500) {
+            // Too fast (less than 500ms), ignore
+            return;
+        }
+        player.lastMessageTime = now;
+
         // Check if guess
         if (this.state === GameState.DRAWING && this.currentWord &&
             text.trim().toLowerCase() === this.currentWord.toLowerCase()) {
@@ -435,10 +462,99 @@ export class Room {
         this.broadcastState();
     }
 
+    restartGame() {
+        if (this.state !== GameState.GAME_END) return;
+
+        console.log(`Restarting game in room ${this.id}`);
+
+        // Reset Game State but keep players
+        this.state = GameState.WAITING;
+        this.currentDrawer = null;
+        this.currentWord = null;
+        this.maskedWord = null;
+        this.round = 1;
+        this.turnIndex = 0;
+        this.timeRemaining = 0;
+
+        // Reset Player Scores
+        this.players.forEach(p => {
+            p.score = 0;
+            p.lastTurnScore = 0;
+            p.hasGuessed = false;
+            p.isDrawer = false;
+        });
+
+        this.io.to(this.id).emit('chat-message', {
+            sender: 'System',
+            text: 'Host has restarted the game!',
+            type: 'system'
+        });
+
+        this.broadcastState();
+
+        // Auto-start after a short delay or let host start?
+        // Let's auto-start for smooth flow since "Play Again" implies starting.
+        setTimeout(() => this.startGame(), 1000);
+    }
+
     updateSettings(newSettings: any) {
         this.settings = { ...this.settings, ...newSettings };
         if (this.settings.maxPlayers) this.maxPlayers = this.settings.maxPlayers;
         if (this.settings.totalRounds) this.totalRounds = this.settings.totalRounds;
         this.broadcastState();
+    }
+
+    voteKick(voterId: string, targetId: string) {
+        const voter = this.players.get(voterId);
+        const target = this.players.get(targetId);
+
+        if (!voter || !target || voterId === targetId) return;
+
+        // Initialize vote set if needed
+        if (!target.kickVotes) {
+            target.kickVotes = new Set();
+        }
+
+        if (target.kickVotes.has(voterId)) {
+            // Already voted
+            return;
+        }
+
+        target.kickVotes.add(voterId);
+
+        const votes = target.kickVotes.size;
+        const required = Math.floor(this.players.size / 2) + 1; // > 50%
+
+        console.log(`[Vote Kick] ${voter.name} voted to kick ${target.name}. (${votes}/${required})`);
+
+        this.io.to(this.id).emit('chat-message', {
+            sender: 'System',
+            text: `${voter.name} voted to kick ${target.name}. (${votes}/${required})`,
+            type: 'system'
+        });
+
+        if (votes >= required) {
+            this.io.to(this.id).emit('chat-message', {
+                sender: 'System',
+                text: `${target.name} has been kicked from the room.`,
+                type: 'system'
+            });
+
+            // Kick the player
+            // We need to emit a specific event to the kicked player so they know?
+            // "removePlayer" just handles room logic. 
+            // In socketHandler we should listen for 'kicked' or just disconnect them.
+            // For now, removing them triggers 'leave' message.
+            // But we should probably explicitly disconnect their socket if possible, 
+            // or just let them be "removed" from state and client handles redirect.
+            this.removePlayer(targetId);
+
+            // If we have reference to their socket, we could force disconnect.
+            // But Room doesn't store socket directly cleanly (it has it in closure maybe but not easily accessible here without map).
+            // Actually we passed socket to addPlayer but didn't store it in Player class.
+            // Ideally Player class should store socket or socketId.
+            // For now, client will receive "room-state" where they are missing, and redirect?
+            // RoomPage checks: if (!gameState.players.find(me)) -> redirect.
+        }
     }
 }

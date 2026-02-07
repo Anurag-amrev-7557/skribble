@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar } from './Avatar';
+import { GameTimer } from './GameTimer';
 
 interface Player {
     id: string;
@@ -13,10 +14,10 @@ interface Player {
 interface RoundResultOverlayProps {
     word: string;
     players: Player[];
-    timeRemaining: number;
+    // timeRemaining: number; // Removed prop
 }
 
-export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, players, timeRemaining }) => {
+export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, players }) => {
     // Sort players by round score (descending), then total score
     const sortedPlayers = [...players].sort((a, b) => {
         if (b.lastTurnScore !== a.lastTurnScore) {
@@ -35,7 +36,7 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
             </div>
 
             {/* Scores List - Floating style like word selection buttons */}
-            <div className="flex flex-col gap-2 w-full max-w-md max-h-[50vh] overflow-y-auto px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+            <div className="flex flex-col gap-2 w-full max-w-md shrink min-h-0 overflow-y-auto px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                 {sortedPlayers.map((player) => (
                     <div
                         key={player.id}
@@ -69,8 +70,8 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
                 ))}
             </div>
 
-            <div className="mt-8 text-white/50 animate-pulse text-sm font-mono">
-                Next round in {timeRemaining}s...
+            <div className="mt-6 text-white/40 animate-pulse text-sm font-mono whitespace-nowrap flex items-center gap-1">
+                Next round in <GameTimer />s...
             </div>
         </div>
     );

@@ -5,10 +5,31 @@ import { Server, Socket } from 'socket.io';
 export class GameManager {
     private rooms: Map<string, Room>;
     private io: Server;
+    private cleanupInterval: NodeJS.Timeout;
 
     constructor(io: Server) {
         this.io = io;
         this.rooms = new Map();
+
+        // Cleanup empty rooms every 60 seconds
+        this.cleanupInterval = setInterval(() => {
+            this.cleanupRooms();
+        }, 60000);
+    }
+
+    private cleanupRooms() {
+        const now = Date.now();
+        let removedCount = 0;
+        this.rooms.forEach((room, id) => {
+            // Delete room if empty and created more than 30 seconds ago
+            if (room.players.size === 0 && (now - room.createdAt) > 30000) {
+                this.rooms.delete(id);
+                removedCount++;
+            }
+        });
+        if (removedCount > 0) {
+            console.log(`[GameManager] Cleaned up ${removedCount} empty rooms.`);
+        }
     }
 
     createRoom(hostId: string, hostName: string, socket: Socket, isPrivate: boolean = false): Room {

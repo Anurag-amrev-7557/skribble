@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Avatar } from './Avatar';
 import { Trophy, Star, Pencil, Crown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Player {
     id: string;
@@ -15,11 +17,21 @@ interface PlayerDetailModalProps {
     player: Player;
     rank: number;
     onClose: () => void;
+    onVoteKick: (playerId: string) => void;
 }
 
-export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, rank, onClose }) => {
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, rank, onClose, onVoteKick }) => {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!mounted) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
             <div className="bg-white dark:bg-zinc-900 border border-white/20 shadow-2xl rounded-2xl p-6 w-full max-w-sm m-4 transform transition-all scale-100 flex flex-col items-center gap-4 relative animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
 
                 {/* Close Button */}
@@ -67,12 +79,21 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player, ra
                     </div>
                 </div>
 
-                {/* Action Buttons (Placeholder for future features like Vote Kick, View Profile, etc) */}
-                {/* <div className="flex gap-2 w-full mt-2">
-                    <Button variant="outline" className="flex-1 h-9 text-xs">View Profile</Button>
-                    <Button variant="destructive" className="flex-1 h-9 text-xs">Vote Kick</Button>
-                </div> */}
+                {/* Action Buttons */}
+                <div className="flex gap-2 w-full mt-2">
+                    <Button
+                        variant="destructive"
+                        className="flex-1 h-9 text-xs font-bold"
+                        onClick={() => {
+                            onVoteKick(player.id);
+                            onClose();
+                        }}
+                    >
+                        Vote Kick 🚫
+                    </Button>
+                </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

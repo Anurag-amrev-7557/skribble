@@ -6,6 +6,7 @@ export interface IPlayer {
     isDrawer: boolean;
     hasGuessed: boolean;
     avatar?: string;
+    kickVotes?: Set<string>;
 }
 
 export class Player implements IPlayer {
@@ -16,6 +17,8 @@ export class Player implements IPlayer {
     public isDrawer: boolean;
     public hasGuessed: boolean;
     public avatar: any;
+    public lastMessageTime: number;
+    public kickVotes: Set<string>; // Stores IDs of voters
 
     constructor(id: string, name: string, avatar: any) {
         this.id = id;
@@ -25,6 +28,8 @@ export class Player implements IPlayer {
         this.isDrawer = false;
         this.hasGuessed = false;
         this.avatar = avatar || { skinColor: "#FFDFC4", eyes: 0, mouth: 0, accessory: 0 };
+        this.lastMessageTime = 0;
+        this.kickVotes = new Set();
     }
 
     resetRoundState() {
