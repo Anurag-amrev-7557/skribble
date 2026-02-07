@@ -147,7 +147,7 @@ export default function RoomPage() {
 
     return (
         <div className={`
-            ${isInputFocused ? 'flex flex-col h-[100dvh] justify-start' : 'grid h-[100dvh] grid-cols-2 md:grid-cols-[300px_1fr_320px] md:grid-rows-1'}
+            ${isInputFocused ? 'fixed inset-0 z-50 flex flex-col justify-start' : 'grid h-[100dvh] grid-cols-2 md:grid-cols-[300px_1fr_320px] md:grid-rows-1'}
             bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
             ${!isInputFocused ? (isDrawer ? 'grid-rows-[auto_auto_1fr_auto]' : 'grid-rows-[auto_1fr_auto]') : ''} 
             overscroll-none`}>
@@ -457,13 +457,7 @@ export default function RoomPage() {
                         placeholder="Type your guess here..."
                         className="flex-1 h-12 px-4 bg-muted/50 focus:outline-none shadow-sm"
                         autoComplete="off"
-                        onFocus={() => {
-                            setIsInputFocused(true);
-                            setTimeout(() => {
-                                window.scrollTo(0, 0);
-                                document.body.scrollTop = 0;
-                            }, 100);
-                        }}
+                        onFocus={() => setIsInputFocused(true)}
                         onBlur={() => setIsInputFocused(false)}
                     />
                     <Button
