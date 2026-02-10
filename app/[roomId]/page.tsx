@@ -171,7 +171,7 @@ export default function RoomPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-1 md:space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-                    <div className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 md:mb-2 px-1 hidden md:block">Players ({gameState.players.length})</div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider mb-1 md:mb-2 px-1 hidden md:block">Players ({gameState.players.length})</div>
                     {[...gameState.players]
                         .sort((a: any, b: any) => b.score - a.score)
                         .map((p: any, i: number) => (
@@ -186,13 +186,13 @@ export default function RoomPage() {
                                         : "border-transparent"
                                     }`}
                             >
-                                <div className="font-mono font-bold text-xs md:text-sm text-muted-foreground w-5 md:w-6 shrink-0">
+                                <div className="font-mono text-xs md:text-sm text-muted-foreground w-5 md:w-6 shrink-0">
                                     #{i + 1}
                                 </div>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center items-center">
                                     <div className="flex items-center gap-1">
                                         <p className="text-[12px] font-semibold md:text-sm truncate max-w-[80px] md:max-w-[110px]">{p.name}</p>
-                                        {p.id === socket.id && <span className="text-primary text-[8px] md:text-[10px] font-bold shrink-0">(YOU)</span>}
+                                        {p.id === socket.id && <span className="text-primary text-[8px] md:text-[10px] shrink-0">(YOU)</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <p className="text-[12px] md:text-xs text-muted-foreground">{p.score} pts</p>
@@ -238,17 +238,17 @@ export default function RoomPage() {
                         <div className="md:hidden flex flex-col items-center gap-0.5">
                             <div className="relative w-10 h-10 flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full text-foreground/80"><circle cx="12" cy="12" r="9" /></svg>
-                                <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold`}>
+                                <span className={`absolute inset-0 flex items-center justify-center text-xs`}>
                                     <GameTimer
                                         render={(time) => <span className={time < 10 ? 'text-red-500' : 'text-foreground'}>{time}</span>}
                                     />
                                 </span>
                             </div>
-                            <div className="text-[10px] font-bold text-muted-foreground leading-none">Round {gameState.round} of {gameState.totalRounds}</div>
+                            <div className="text-[10px] text-muted-foreground leading-none">Round {gameState.round} of {gameState.totalRounds}</div>
                         </div>
                         <div className="hidden md:flex bg-white/80 dark:bg-zinc-900/50 backdrop-blur-md border shadow-sm rounded-2xl px-4 py-2 items-center gap-4">
                             <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Round</span>
+                                <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Round</span>
                                 <div className="text-xl font-black leading-none">{gameState.round}<span className="text-muted-foreground text-sm font-medium">/{gameState.totalRounds}</span></div>
                             </div>
                             <div className="w-px h-8 bg-border" />
@@ -257,8 +257,8 @@ export default function RoomPage() {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Room Code</span>
-                                    <div className="text-sm font-mono font-bold leading-none">{roomId}</div>
+                                    <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Room Code</span>
+                                    <div className="text-sm font-mono leading-none">{roomId}</div>
                                 </div>
                             </div>
                         </div>
@@ -272,7 +272,7 @@ export default function RoomPage() {
                                 {isDrawer ? (
                                     <div className="text-lg font-black tracking-widest text-primary">{gameState.currentWord || "..."}</div>
                                 ) : (
-                                    <div className="text-lg font-black tracking-widest flex gap-1">
+                                    <div className="text-lg font-black tracking-widest flex gap-1 text-foreground">
                                         {(gameState.maskedWord || "").split('').map((char: string, i: number) => (
                                             <span key={i} className="w-3 text-center border-b-2 border-foreground/50 leading-none">{char === '_' ? '\u00A0' : char}</span>
                                         ))}
@@ -285,7 +285,7 @@ export default function RoomPage() {
                                 ) : isDrawer ? (
                                     <>
                                         <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">DRAW THIS</div>
-                                        <div className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-600 animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
+                                        <div className="text-2xl font-black tracking-widest bg-clip-text animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
                                     </>
                                 ) : (
                                     <>
@@ -326,12 +326,12 @@ export default function RoomPage() {
                         <div className="hidden md:flex bg-white/80 dark:bg-zinc-900/50 backdrop-blur-md border shadow-sm rounded-2xl p-2 pr-4 items-center gap-3">
                             <GameTimer
                                 render={(time) => (
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner ${time < 10 ? "bg-red-500 text-white animate-pulse" : "bg-zinc-100 dark:bg-zinc-800 text-foreground"}`}>
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${time < 10 ? "bg-red-500 text-white animate-pulse" : "bg-zinc-100 dark:bg-zinc-800 text-foreground"}`}>
                                         {time}
                                     </div>
                                 )}
                             />
-                            <div className="flex flex-col"><span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Time</span><span className="text-xs font-semibold">Seconds</span></div>
+                            <div className="flex flex-col"><span className="text-[10px] uppercase text-muted-foreground tracking-wider">Time</span><span className="text-xs font-semibold">Seconds</span></div>
                         </div>
                     </div>
                 </div>
@@ -391,7 +391,7 @@ export default function RoomPage() {
                                         <div className="text-xl md:text-3xl font-black mb-4 md:mb-8 tracking-tight">Choose a Word to Draw!</div>
                                         <div className="flex flex-wrap gap-2 md:gap-4 justify-center max-w-2xl">
                                             {wordOptions.map((word) => (
-                                                <Button key={word} onClick={() => handleSelectWord(word)} className="h-10 md:h-18 px-4 md:px-8 text-sm md:text-2xl font-bold rounded-lg bg-white shadow-lg text-black hover:bg-white hover:text-black">{word}</Button>
+                                                <Button key={word} onClick={() => handleSelectWord(word)} className="h-10 md:h-14 px-4 md:px-8 text-sm md:text-2xl rounded-full bg-white shadow-lg text-black hover:bg-white hover:text-black">{word}</Button>
                                             ))}
                                         </div>
                                         <div className="mt-8 text-white/50 animate-pulse text-sm font-mono whitespace-nowrap flex items-center gap-1">

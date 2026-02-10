@@ -1,4 +1,7 @@
-export const WORDS = [
+import wordPictionaryList from 'word-pictionary-list';
+
+// Existing categorized words to ensure specific simple words are included
+const MANUAL_WORDS = [
     // --- ANIMALS ---
     "ALLIGATOR", "ANT", "BEAR", "BEE", "BIRD", "CAMEL", "CAT", "CHEETAH", "CHICKEN", "CHIMP",
     "COW", "CROCODILE", "DEER", "DOG", "DOLPHIN", "DUCK", "EAGLE", "ELEPHANT", "FISH", "FLY",
@@ -15,7 +18,7 @@ export const WORDS = [
     "SANDWICH", "SOUP", "SPAGHETTI", "STEAK", "STRAWBERRY", "SUSHI", "TACO", "TOAST", "TOMATO", "WATER",
     "WATERMELON", "COFFEE", "TEA", "JUICE", "SODA", "BEER", "WINE",
 
-    // --- GLOTHING & ACCESSORIES ---
+    // --- CLOTHING & ACCESSORIES ---
     "BELT", "BOOTS", "CAP", "COAT", "DRESS", "GLOVES", "HAT", "JACKET", "JEANS", "MUFFLER",
     "PANTS", "RAINCOAT", "SCARF", "SHIRT", "SHOES", "SHORTS", "SKIRT", "SOCKS", "SUIT", "SWEATER",
     "TIE", "TROUSERS", "TSHIRT", "VEST", "WATCH", "GLASSES", "SUNGLASSES", "RING", "NECKLACE", "EARRINGS",
@@ -72,3 +75,19 @@ export const WORDS = [
     "ANGEL", "CIRCLE", "CROSS", "DIAMOND", "DOT", "HEART", "LINE", "MUSIC", "NIGHT", "PARTY",
     "SCHOOL", "SQUARE", "TRIANGLE", "ZOO", "AMERICA", "AFRICA", "ASIA", "EUROPE", "AUSTRALIA", "ANTARCTICA"
 ];
+
+// Extract words from the library
+// @ts-ignore
+const LIBRARY_WORDS: string[] = (wordPictionaryList.wordList || wordPictionaryList.default?.wordList || []) as string[];
+
+// Combine, Uppercase, Dedup
+const ALL_WORDS = [
+    ...MANUAL_WORDS,
+    ...LIBRARY_WORDS
+];
+
+export const WORDS = Array.from(new Set(
+    ALL_WORDS
+        .map(w => w.trim().toUpperCase())
+        .filter(w => w.length > 0 && w !== "UNDEFINED") // Filter out potential bad data
+));

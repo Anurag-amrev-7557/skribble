@@ -25,6 +25,7 @@
     "tailwind-merge": "^3.4.0",
     "tesseract.js": "^7.0.0",
     "tsx": "^4.21.0",
+    "word-pictionary-list": "^1.0.4",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
