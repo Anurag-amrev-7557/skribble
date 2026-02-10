@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { socket } from "@/lib/socket";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 interface ChatBoxProps {
     roomId: string;
@@ -13,7 +14,7 @@ interface ChatBoxProps {
 }
 
 export function ChatBox({ roomId, playerName, onSound }: ChatBoxProps) {
-    const [messages, setMessages] = useState<Array<{ sender: string; text: string; type?: 'system' | 'chat' | 'guess' }>>([]);
+    const [messages, setMessages] = useState<Array<{ sender: string; text: string; type?: 'system' | 'chat' | 'guess' | 'feedback'; rating?: 'like' | 'dislike' }>>([]);
     const [input, setInput] = useState("");
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +68,7 @@ export function ChatBox({ roomId, playerName, onSound }: ChatBoxProps) {
                                 ? (i % 2 === 0 ? 'bg-green-200 dark:bg-green-800/40 text-green-800 dark:text-green-100' : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-100')
                                 : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent') + (msg.type === 'system' ? '' : '')
                                 }`}>
-                                {msg.type !== 'system' && <span className="font-bold text-foreground/80">{msg.sender}: </span>}
+                                {(msg.type !== 'system' && msg.type !== 'feedback') && <span className="font-bold text-foreground/80">{msg.sender}: </span>}
                                 {msg.type === 'system' ? (
                                     <span className={`font-bold ${msg.text.includes("joined") ? "text-green-600 dark:text-green-400" :
                                         msg.text.includes("left") ? "text-amber-600 dark:text-amber-400" :
@@ -75,6 +76,11 @@ export function ChatBox({ roomId, playerName, onSound }: ChatBoxProps) {
                                                 "text-blue-500"
                                         }`}>
                                         {msg.text}
+                                    </span>
+                                ) : msg.type === 'feedback' ? (
+                                    <span className={`font-bold inline-flex items-center gap-1 ${msg.rating === 'like' ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                        {msg.text}
+                                        {msg.rating === 'like' ? <ThumbsUp className="w-3 h-3" /> : <ThumbsDown className="w-3 h-3" />}
                                     </span>
                                 ) : (
                                     <span className={msg.type === 'guess' ? 'text-green-600 font-bold' : 'text-foreground/90'}>

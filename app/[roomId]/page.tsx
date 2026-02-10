@@ -13,7 +13,7 @@ import { Avatar, AvatarConfig } from "@/components/Avatar";
 import { DrawingToolbar } from "@/components/DrawingToolbar";
 import { RoomSettings } from "@/components/RoomSettings";
 import { GameTimer } from "@/components/GameTimer";
-import { Brain, Palette, Sparkles, Clock, Check } from "lucide-react";
+import { Brain, Palette, Sparkles, Clock, Check, Pencil, ThumbsUp, ThumbsDown } from "lucide-react";
 import Link from "next/link";
 import { useGameSounds } from "@/hooks/useGameSounds";
 
@@ -60,7 +60,6 @@ export default function RoomPage() {
                 setGameState(response.roomState);
                 playSound('join');
             } else {
-                alert("Room not found or expired. Redirecting to lobby...");
                 window.location.href = '/';
             }
         });
@@ -90,14 +89,17 @@ export default function RoomPage() {
         };
     }, [roomId, playerName]);
 
-    // Sound Effects for Game State Changes
+    // Sound Effects & State Resets for Game State Changes
     useEffect(() => {
+        // Reset revealed word when starting a new turn/round or waiting
+        if (gameState.state === 'SELECTING_WORD' || gameState.state === 'DRAWING' || gameState.state === 'WAITING') {
+            setRevealedWord(null);
+        }
+
         if (gameState.state === 'GAME_END') {
             playSound('game-end');
-        } else if (gameState.state === 'DRAWING' || gameState.state === 'SELECTING_WORD') {
-            // Simple check: if round or drawer changed, likely a new turn/round
-            // But simpler to just play on state change to SELECTING_WORD (new turn)
-            if (gameState.state === 'SELECTING_WORD') playSound('turn-start');
+        } else if (gameState.state === 'SELECTING_WORD') {
+            playSound('turn-start');
         }
     }, [gameState.state, gameState.currentDrawer, playSound]);
 
@@ -179,7 +181,7 @@ export default function RoomPage() {
                                 key={p.id}
                                 onClick={() => setSelectedPlayer(p)} // Set selected player on click
                                 className={`cursor-pointer group relative flex items-center gap-2 md:gap-3 p-1 md:p-2 mb-0 transition-all duration-300 border-b hover:shadow-md hover:scale-[1.02] ${p.hasGuessed
-                                    ? (i % 2 === 0 ? 'bg-green-200 dark:bg-green-800/40' : 'bg-green-100 dark:bg-green-900/30') // Green (Success) takes priority
+                                    ? (i % 2 === 0 ? 'bg-green-400/70 dark:bg-green-600/60' : 'bg-green-300/70 dark:bg-green-700/50') // Green (Success) takes priority
                                     : (p.id === socket.id ? 'bg-primary/5' : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent')) // Else Blue (Self) or Standard Stripe
                                     } ${p.id === socket.id
                                         ? "border-primary/50 shadow-sm ring-1 ring-primary/20"
@@ -199,7 +201,11 @@ export default function RoomPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
-                                    {p.isDrawer && <div className="animate-bounce text-sm md:text-lg" title="Drawing Now">✏️</div>}
+                                    {p.isDrawer && (
+                                        <div title="Drawing Now" className="animate-bounce text-primary">
+                                            <Pencil className="w-4 h-4 md:w-5 md:h-5" />
+                                        </div>
+                                    )}
                                     {/* Host Crown */}
 
                                     <div className="w-8 h-8 md:w-9 md:h-9 relative">
@@ -229,7 +235,7 @@ export default function RoomPage() {
             <div className={`
                 row-start-1 col-span-2 
                 md:row-start-1 md:col-start-2 md:col-span-1 
-                flex flex-col relative ${isInputFocused ? 'h-[75vh]' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
+                flex flex-col relative ${isInputFocused && !isDrawer ? 'h-[75vh]' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
 
                 {/* Header (Floating) */}
                 <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
@@ -270,12 +276,24 @@ export default function RoomPage() {
                             <div className="md:hidden flex flex-col items-center">
                                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">{gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}</div>
                                 {isDrawer ? (
-                                    <div className="text-lg font-black tracking-widest text-primary">{gameState.currentWord || "..."}</div>
+                                    <div className="text-lg font-black tracking-widest text-foreground">{gameState.currentWord || "..."}</div>
                                 ) : (
                                     <div className="text-lg font-black tracking-widest flex gap-1 text-foreground">
-                                        {(gameState.maskedWord || "").split('').map((char: string, i: number) => (
-                                            <span key={i} className="w-3 text-center border-b-2 border-foreground/50 leading-none">{char === '_' ? '\u00A0' : char}</span>
-                                        ))}
+                                        {(gameState.maskedWord || "").split('').map((char: string, i: number) => {
+                                            const isSpace = char === ' ';
+                                            return (
+                                                <span
+                                                    key={`${i}-${char}`}
+                                                    className={`text-center border-b-2 leading-none transition-all duration-300 
+                                                    ${isSpace ? 'w-3 border-transparent' : 'w-3'}
+                                                    ${!isSpace && char !== '_'
+                                                            ? 'border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-1 zoom-in-50 duration-300'
+                                                            : (isSpace ? 'border-transparent' : 'border-foreground/50 text-transparent')}`}
+                                                >
+                                                    {char === '_' ? '\u00A0' : char}
+                                                </span>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -285,7 +303,7 @@ export default function RoomPage() {
                                 ) : isDrawer ? (
                                     <>
                                         <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">DRAW THIS</div>
-                                        <div className="text-2xl font-black tracking-widest bg-clip-text animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
+                                        <div className="text-2xl font-black tracking-widest text-foreground animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
                                     </>
                                 ) : (
                                     <>
@@ -293,17 +311,19 @@ export default function RoomPage() {
                                         <div className="text-2xl font-black tracking-widest flex gap-3 text-foreground/80">
                                             {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
                                                 const isRevealed = revealedWord || (gameState.maskedWord && gameState.maskedWord[i] !== '_');
+                                                const isSpace = char === ' ';
                                                 // If revealedWord is set, ALL are revealed.
                                                 // If just maskedWord, only non-underscore are revealed.
                                                 // We want to animate if it wasn't revealed before? 
                                                 // Simple animation: key by index, if char changes from _ to Letter, animate.
                                                 return (
                                                     <span key={`${i}-${char}`} className={`
-                                                        border-b-[3px] w-8 text-center transition-all duration-300 transform
-                                                        ${char !== '_'
-                                                            ? 'border-primary/50 text-foreground -translate-y-1 animate-in zoom-in spin-in-x duration-500'
-                                                            : 'border-foreground/20 text-transparent'}
-                                                        ${revealedWord && char !== '_' ? 'text-green-600 dark:text-green-400 scale-110' : ''}
+                                                        border-b-[3px] text-center transition-all duration-300 transform
+                                                        ${isSpace ? 'w-6 border-transparent' : 'w-8'}
+                                                        ${!isSpace && char !== '_'
+                                                            ? 'border-primary/50 text-foreground -translate-y-1 animate-in fade-in slide-in-from-bottom-2 zoom-in-50 duration-500'
+                                                            : (isSpace ? 'border-transparent' : 'border-foreground/20 text-transparent')}
+                                                        ${revealedWord && char !== '_' && !isSpace ? 'text-green-600 dark:text-green-400 scale-110' : ''}
                                                     `}>
                                                         {char === '_' ? '\u00A0' : char}
                                                     </span>
@@ -381,13 +401,43 @@ export default function RoomPage() {
                             </div>
                         )}
 
+                        {/* Like/Dislike Buttons (Non-Drawer only, during Drawing) */}
+                        {!isDrawer && gameState.state === 'DRAWING' && (
+                            <div className="absolute top-4 right-4 flex flex-col gap-2 z-30 pointer-events-auto">
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full shadow-md bg-white/90 hover:bg-white hover:scale-110 transition-all active:scale-95"
+                                    onClick={() => {
+                                        socket.emit('rate-drawing', { roomId, rating: 'like' });
+                                    }}
+                                    title="Like Drawing"
+                                >
+                                    <ThumbsUp className="w-5 h-5 text-green-600" />
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full shadow-md bg-white/90 hover:bg-white hover:scale-110 transition-all active:scale-95"
+                                    onClick={() => {
+                                        socket.emit('rate-drawing', { roomId, rating: 'dislike' });
+                                    }}
+                                    title="Dislike Drawing"
+                                >
+                                    <ThumbsDown className="w-5 h-5 text-red-500" />
+                                </Button>
+                            </div>
+                        )}
+
                         {/* Overlays (Word Select, Results, etc) */}
                         {/* Word Selection Overlay */}
                         {gameState.state === 'SELECTING_WORD' && (
                             <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
                                 {isDrawer ? (
                                     <>
-                                        <div className="text-2xl md:text-4xl mb-4 md:mb-6">🎨</div>
+                                        <div className="mb-4 md:mb-6 animate-bounce">
+                                            <Palette className="w-12 h-12 md:w-16 md:h-16 text-white" />
+                                        </div>
                                         <div className="text-xl md:text-3xl font-black mb-4 md:mb-8 tracking-tight">Choose a Word to Draw!</div>
                                         <div className="flex flex-wrap gap-2 md:gap-4 justify-center max-w-2xl">
                                             {wordOptions.map((word) => (
@@ -400,7 +450,9 @@ export default function RoomPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <div className="animate-bounce text-6xl mb-6">🤔</div>
+                                        <div className="mb-6 animate-bounce">
+                                            <Brain className="w-16 h-16 text-white" />
+                                        </div>
                                         <h2 className="text-lg md:text-3xl font-black tracking-tight text-center">{gameState.players.find((p: any) => p.isDrawer)?.name || "Drawer"} is choosing a word...</h2>
                                         <p className="text-white/50 mt-4">Get ready to guess!</p>
                                     </>

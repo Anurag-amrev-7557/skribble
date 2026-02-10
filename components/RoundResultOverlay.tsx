@@ -1,6 +1,7 @@
 import React from 'react';
 import { Avatar } from './Avatar';
 import { GameTimer } from './GameTimer';
+import { AlarmClock } from "lucide-react";
 
 interface Player {
     id: string;
@@ -29,7 +30,9 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
     return (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
             {/* Header */}
-            <div className="text-2xl md:text-5xl mb-3 md:mb-5">⏰</div>
+            <div className="mb-3 md:mb-5">
+                <AlarmClock className="w-12 h-12 md:w-16 md:h-16 text-white/90 animate-pulse" />
+            </div>
             <h2 className="text-xl md:text-3xl font-black mb-1 tracking-tight">Time's Up!</h2>
             <div className="text-white/80 text-sm md:text-lg mb-4 md:mb-6">
                 The word was <span className="font-extrabold text-green-400">{word}</span>

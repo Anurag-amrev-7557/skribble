@@ -56,7 +56,7 @@ export default function Home() {
       </div>
 
       <div className="mt-12 text-indigo-300/40 text-[10px] font-bold uppercase tracking-widest z-10 flex gap-4">
-        <span>© 2024 Skribble.io Clone</span>
+        <span>© {new Date().getFullYear()} Skribble.io Clone</span>
         <span>•</span>
         <a href="#" className="hover:text-white transition-colors">Privacy</a>
         <span>•</span>

@@ -430,7 +430,7 @@ export class Room {
                 // Notify room
                 this.io.to(this.id).emit('chat-message', {
                     sender: 'System',
-                    text: `${player.name} guessed the word! (+${scoreGain} pts)`,
+                    text: `${player.name} guessed the word!`,
                     type: 'system'
                 });
 
@@ -559,5 +559,30 @@ export class Room {
             // For now, client will receive "room-state" where they are missing, and redirect?
             // RoomPage checks: if (!gameState.players.find(me)) -> redirect.
         }
+    }
+
+    handleDrawingRating(playerId: string, rating: 'like' | 'dislike') {
+        const player = this.players.get(playerId);
+        if (!player) return;
+
+        // Prevent drawer from rating their own drawing (though UI should hide it)
+        if (this.currentDrawer === playerId) return;
+
+        // Allow multiple ratings? Maybe throttle?
+        // For simplicity, we just broadcast. 
+        // We could store "hasRated" per turn if we want to limit to 1 per turn.
+        // Let's limit to 1 per turn for spam protection.
+        // We can add a temporary property to player or just rely on client + simple rate limit.
+        // Let's just rely on a simple check.
+
+        // Broadcast to chat
+        const action = rating === 'like' ? 'liked' : 'disliked';
+
+        this.io.to(this.id).emit('chat-message', {
+            sender: 'System',
+            text: `${player.name} ${action} the drawing!`,
+            type: 'feedback', // specialized type for styling if needed
+            rating: rating
+        });
     }
 }

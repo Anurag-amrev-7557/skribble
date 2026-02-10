@@ -301,7 +301,7 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         return () => clearInterval(interval);
     }, [isDrawer, currentWord]);
 
-    // --- Resize Observer ---
+    // --- Resize Observer (High DPI Support) ---
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -311,69 +311,58 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         const handleResize = () => {
             const { width, height } = parent.getBoundingClientRect();
-            canvas.width = width;
-            canvas.height = height;
+            const dpr = window.devicePixelRatio || 1;
+
+            // set canvas dimensions to physical pixels
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+
+            // set css dimensions
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
 
             const ctx = canvas.getContext("2d");
             if (ctx) {
+                // Scale all drawing operations by dpr
+                ctx.scale(dpr, dpr);
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
-                // Redraw history immediately to prevent loss
-                // We need to access the LATEST history, so we use the ref or state in a functional update way, 
-                // but since this is inside an event listener/observer, we rely on the closure or external ref.
-                // Best to expose redrawCanvas as a stable function or use a ref for history.
             }
         };
 
         const resizeObserver = new ResizeObserver(() => {
             handleResize();
-            // We need to trigger a redraw. Since history is state, we might not have latest here if we don't include it in dep array.
-            // But ResizeObserver should probably just trigger a re-render or we assume the parent re-renders. 
-            // Actually, the simplest way to ensure history is available is to use a Ref for history in addition to state.
+            // Redraw history
+            redrawCanvas(historyRef.current);
         });
 
         resizeObserver.observe(parent);
 
+        // Initial sizing
+        handleResize();
+
         return () => {
             resizeObserver.disconnect();
         };
-    }, []); // Empty dep array, but we need to handle history redraw. 
+    }, []);
 
     // Sync History Ref for Resize Redraw
     const historyRef = useRef<any[]>(history);
     useEffect(() => { historyRef.current = history; }, [history]);
 
-    // Effect to redraw when size changes (or just use the observer callback logic if we can access historyRef)
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const observer = new ResizeObserver(() => {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.lineCap = "round";
-                ctx.lineJoin = "round";
-            }
-            redrawCanvas(historyRef.current);
-        });
-        observer.observe(canvas.parentElement!);
-        return () => observer.disconnect();
-    }, []);
 
 
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Initial Setup
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
+        // Basic setup is handled in ResizeObserver, but we can reinforce it or just trust it.
+        // We rely on handleResize to set scale and size.
+        // But we might need to set lineCap/Join if context was reset manually? 
+        // Changing width/height resets context, which handleResize does.
+
 
         const handleRemoteStroke = (stroke: any) => {
             const { points, color, width } = stroke;
@@ -466,10 +455,11 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         setIsDrawing(true);
 
+        // Start a new path (logic reset)
         ctx.beginPath();
         ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
         ctx.lineWidth = lineWidth;
-        ctx.moveTo(x, y); // Start point
+        ctx.moveTo(x, y);
 
         // Initialize points array for this stroke
         (canvas as any).currentStroke = [{ x, y }];
@@ -498,18 +488,29 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         pendingPoints.current.push({ x, y });
         flushBuffer();
 
-        if (points.length > 2) {
-            // Local Drawing (Smoothed)
-            const lastPoint = points[points.length - 2];
+        // High Quality Midpoint Smoothing
+        if (points.length === 2) {
+            // Second point: Draw line from P0 to Mid(P0, P1)
+            const p0 = points[0];
+            const p1 = points[1];
+            const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+
             ctx.beginPath();
-            ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
-            ctx.lineWidth = lineWidth;
-            ctx.moveTo(points[points.length - 2].x, points[points.length - 2].y);
-            ctx.quadraticCurveTo(points[points.length - 2].x, points[points.length - 2].y, x, y);
-            ctx.lineTo(x, y); // Redundant?
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(mid.x, mid.y);
             ctx.stroke();
-        } else {
-            ctx.lineTo(x, y);
+        } else if (points.length > 2) {
+            // Subsequent points: Draw curve from Previous Mid to New Mid
+            const p1 = points[points.length - 3];
+            const p2 = points[points.length - 2];
+            const p3 = points[points.length - 1];
+
+            const mid1 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+            const mid2 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
+
+            ctx.beginPath();
+            ctx.moveTo(mid1.x, mid1.y);
+            ctx.quadraticCurveTo(p2.x, p2.y, mid2.x, mid2.y);
             ctx.stroke();
         }
     };
@@ -520,7 +521,25 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         // Save full stroke to history
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const points = (canvas as any).currentStroke;
+
+        // Finish the stroke (Draw from last mid to last point)
+        if (points && points.length > 1) {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                const last = points[points.length - 1];
+                const prev = points[points.length - 2];
+                const mid = { x: (prev.x + last.x) / 2, y: (prev.y + last.y) / 2 };
+
+                ctx.beginPath();
+                ctx.moveTo(mid.x, mid.y);
+                ctx.lineTo(last.x, last.y);
+                ctx.stroke();
+            }
+        }
+
         if (points && points.length > 0) {
             const action = {
                 type: 'stroke',

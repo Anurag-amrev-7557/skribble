@@ -116,6 +116,14 @@ export const setupSocketIO = (io: Server) => {
             }
         });
 
+        // Rate Drawing Event
+        socket.on('rate-drawing', ({ roomId, rating }: { roomId: string; rating: 'like' | 'dislike' }) => {
+            const room = gameManager.getRoom(roomId);
+            if (room) {
+                room.handleDrawingRating(socket.id, rating);
+            }
+        });
+
         // Word Selection Event
         socket.on('select-word', ({ roomId, word }: { roomId: string; word: string }) => {
             const room = gameManager.getRoom(roomId);
