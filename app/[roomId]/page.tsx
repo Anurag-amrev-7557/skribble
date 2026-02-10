@@ -224,7 +224,7 @@ export default function RoomPage() {
             <div className={`
                 row-start-1 col-span-2 
                 md:row-start-1 md:col-start-2 md:col-span-1 
-                flex flex-col relative h-[55vh] md:h-auto border-b md:border-b-0 border-black/10`}>
+                flex flex-col relative ${isInputFocused ? 'h-[75vh]' : 'h-[55vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
 
                 {/* Header (Floating) */}
                 <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
