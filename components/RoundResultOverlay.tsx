@@ -30,13 +30,9 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
     return (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
             {/* Header */}
-            <div className="mb-3 md:mb-5">
-                <AlarmClock className="w-12 h-12 md:w-16 md:h-16 text-white/90 animate-pulse" />
-            </div>
-            <h2 className="text-xl md:text-3xl font-black mb-1 tracking-tight">Time's Up!</h2>
-            <div className="text-white/80 text-sm md:text-lg mb-4 md:mb-6">
-                The word was <span className="font-extrabold text-green-400">{word}</span>
-            </div>
+                <div className="text-white/80 text-base md:text-lg mb-4 md:mb-6">
+                    The word was <span className="font-extrabold text-green-400">{word}</span>
+                </div>
 
             {/* Scores List - Floating style like word selection buttons */}
             <div className="flex flex-col gap-2 w-full max-w-md shrink min-h-0 overflow-y-auto px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
@@ -73,7 +69,7 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
                 ))}
             </div>
 
-            <div className="mt-6 text-white/40 animate-pulse text-sm font-mono whitespace-nowrap flex items-center gap-1">
+            <div className="mt-6 text-white/40 text-sm font-mono whitespace-nowrap flex items-center gap-1">
                 Next round in <GameTimer />s...
             </div>
         </div>

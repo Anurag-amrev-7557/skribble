@@ -154,14 +154,16 @@ export default function RoomPage() {
 
     return (
         <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
-            grid-cols-2 ${isDrawer
-                ? 'grid-rows-[auto_auto_1fr_auto]'
-                : 'grid-rows-[auto_1fr_auto]'}
+            grid-cols-2 ${isInputFocused && !isDrawer
+                ? 'grid-rows-[1fr_auto]' // Focused: Header+Canvas (1fr), Input (auto)
+                : isDrawer
+                    ? 'grid-rows-[auto_auto_1fr_auto]' // Drawer: Header, Toolbar, Canvas, Chat
+                    : 'grid-rows-[auto_1fr_auto]'} // Default: Header+Canvas, Players/Chat, Input
             md:grid-cols-[300px_1fr_320px] md:grid-rows-1 overscroll-none`}>
 
             {/* players AREA */}
             <div className={`
-                ${isDrawer ? 'row-start-3' : 'row-start-2'} col-start-1 
+                ${isInputFocused ? 'hidden md:flex' : (isDrawer ? 'row-start-3' : 'row-start-2')} col-start-1 
                 md:row-start-1 md:col-start-1 
                 w-full h-full flex flex-col md:p-4 z-20 shrink-0 bg-white/50 dark:bg-black/20 border-r border-t border-black/20 overflow-hidden`}>
                 <div className="mb-2 md:mb-6 px-1 md:px-2 hidden md:block">
@@ -202,7 +204,7 @@ export default function RoomPage() {
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                     {p.isDrawer && (
-                                        <div title="Drawing Now" className="animate-bounce text-primary">
+                                        <div title="Drawing Now" className="text-black">
                                             <Pencil className="w-4 h-4 md:w-5 md:h-5" />
                                         </div>
                                     )}
@@ -235,7 +237,9 @@ export default function RoomPage() {
             <div className={`
                 row-start-1 col-span-2 
                 md:row-start-1 md:col-start-2 md:col-span-1 
-                flex flex-col relative ${isInputFocused && !isDrawer ? 'h-[65vh]' : 'h-[50vh]'} md:h-auto border-b md:border-b-0 border-black/10`}>
+                flex flex-col relative 
+                ${isInputFocused && !isDrawer ? 'h-full row-span-1' : 'h-[60vh]'} 
+                md:h-auto border-b md:border-b-0 border-black/10 transition-all duration-300`}>
 
                 {/* Header (Floating) */}
                 <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
@@ -279,8 +283,9 @@ export default function RoomPage() {
                                     <div className="text-lg font-black tracking-widest text-foreground">{gameState.currentWord || "..."}</div>
                                 ) : (
                                     <div className="text-lg font-black tracking-widest flex gap-1 text-foreground">
-                                        {(gameState.maskedWord || "").split('').map((char: string, i: number) => {
+                                        {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
                                             const isSpace = char === ' ';
+                                            const isRevealed = !!revealedWord;
                                             return (
                                                 <span
                                                     key={`${i}-${char}`}
@@ -288,7 +293,8 @@ export default function RoomPage() {
                                                     ${isSpace ? 'w-3 border-transparent' : 'w-3'}
                                                     ${!isSpace && char !== '_'
                                                             ? 'border-primary/50 text-foreground animate-in fade-in slide-in-from-bottom-1 zoom-in-50 duration-300'
-                                                            : (isSpace ? 'border-transparent' : 'border-foreground/50 text-transparent')}`}
+                                                            : (isSpace ? 'border-transparent' : 'border-foreground/50 text-transparent')}
+                                                    ${isRevealed && !isSpace ? 'text-green-600 dark:text-green-400' : ''}`}
                                                 >
                                                     {char === '_' ? '\u00A0' : char}
                                                 </span>
@@ -435,7 +441,7 @@ export default function RoomPage() {
                             <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
                                 {isDrawer ? (
                                     <>
-                                        <div className="mb-4 md:mb-6 animate-bounce">
+                                        <div className="mb-4 md:mb-6">
                                             <Palette className="w-12 h-12 md:w-16 md:h-16 text-white" />
                                         </div>
                                         <div className="text-xl md:text-3xl font-black mb-4 md:mb-8 tracking-tight">Choose a Word to Draw!</div>
@@ -450,7 +456,7 @@ export default function RoomPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <div className="mb-6 animate-bounce">
+                                        <div className="mb-6">
                                             <Brain className="w-16 h-16 text-white" />
                                         </div>
                                         <h2 className="text-lg md:text-3xl font-black tracking-tight text-center">{gameState.players.find((p: any) => p.isDrawer)?.name || "Drawer"} is choosing a word...</h2>
@@ -483,7 +489,7 @@ export default function RoomPage() {
             </div>
 
             {/* Mobile Drawing Toolbar (Separate Row) */}
-            {isDrawer && !isPrivateRoomLobby && (
+            {isDrawer && !isPrivateRoomLobby && !isInputFocused && (
                 <div className={`
                     row-start-2 col-span-2 
                     md:hidden 
@@ -504,7 +510,7 @@ export default function RoomPage() {
 
             {/* Chat Area */}
             <div className={`
-                ${isDrawer ? 'row-start-3' : 'row-start-2'} col-start-2 
+                ${isInputFocused ? 'hidden md:flex' : (isDrawer ? 'row-start-3' : 'row-start-2')} col-start-2 
                 md:row-start-1 md:col-start-3 
                 w-full h-full flex flex-col z-20 shrink-0 bg-white/50 dark:bg-black/20 border-l border-t border-black/20 overflow-hidden`}>
                 <ChatBox roomId={roomId} playerName={playerName} onSound={playSound} />
@@ -512,7 +518,7 @@ export default function RoomPage() {
 
             {/* Mobile Input Bar */}
             <div className={`
-                ${isDrawer ? 'row-start-4' : 'row-start-3'} col-span-2
+                ${isInputFocused ? 'row-start-2' : (isDrawer ? 'row-start-4' : 'row-start-3')} col-span-2
                 md:hidden
                 w-full bg-background border-t z-50 transition-all duration-200`}>
                 <form onSubmit={(e) => {
