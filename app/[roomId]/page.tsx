@@ -32,6 +32,7 @@ export default function RoomPage() {
     const [lineWidth, setLineWidth] = useState(5);
     const [tool, setTool] = useState<'pen' | 'eraser' | 'fill'>('pen');
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+    const [isInputFocused, setIsInputFocused] = useState(false);
 
 
     const [gameState, setGameState] = useState<any>({
@@ -146,12 +147,14 @@ export default function RoomPage() {
 
     return (
         <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
-            grid-cols-2 ${isDrawer ? 'grid-rows-[auto_auto_1fr_auto]' : 'grid-rows-[auto_1fr_auto]'}
+            grid-cols-2 ${isDrawer
+                ? 'grid-rows-[auto_auto_1fr_auto]'
+                : (isInputFocused ? 'grid-rows-[auto_auto_1fr]' : 'grid-rows-[auto_1fr_auto]')}
             md:grid-cols-[300px_1fr_320px] md:grid-rows-1 overscroll-none`}>
 
             {/* players AREA */}
             <div className={`
-                ${isDrawer ? 'row-start-3' : 'row-start-2'} col-start-1 
+                ${isDrawer ? 'row-start-3' : (isInputFocused ? 'row-start-3' : 'row-start-2')} col-start-1 
                 md:row-start-1 md:col-start-1 
                 w-full h-full flex flex-col md:p-4 z-20 shrink-0 bg-white/50 dark:bg-black/20 border-r border-t border-black/20 overflow-hidden`}>
                 <div className="mb-2 md:mb-6 px-1 md:px-2 hidden md:block">
@@ -429,7 +432,7 @@ export default function RoomPage() {
 
             {/* Chat Area */}
             <div className={`
-                ${isDrawer ? 'row-start-3' : 'row-start-2'} col-start-2 
+                ${isDrawer ? 'row-start-3' : (isInputFocused ? 'row-start-3' : 'row-start-2')} col-start-2 
                 md:row-start-1 md:col-start-3 
                 w-full h-full flex flex-col z-20 shrink-0 bg-white/50 dark:bg-black/20 border-l border-t border-black/20 overflow-hidden`}>
                 <ChatBox roomId={roomId} playerName={playerName} onSound={playSound} />
@@ -437,7 +440,7 @@ export default function RoomPage() {
 
             {/* Mobile Input Bar */}
             <div className={`
-                ${isDrawer ? 'row-start-4' : 'row-start-3'} col-span-2
+                ${isDrawer ? 'row-start-4' : (isInputFocused ? 'row-start-2' : 'row-start-3')} col-span-2
                 md:hidden
                 w-full bg-background border-t z-50 transition-all duration-200`}>
                 <form onSubmit={(e) => {
@@ -455,6 +458,8 @@ export default function RoomPage() {
                         placeholder="Type your guess here..."
                         className="flex-1 h-12 px-4 bg-muted/50 focus:outline-none shadow-sm"
                         autoComplete="off"
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setTimeout(() => setIsInputFocused(false), 100)}
 
                     />
                     <Button
