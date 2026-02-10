@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import { Trophy, RotateCcw, Home } from 'lucide-react';
+import { GameEndIllustration } from "@/components/illustrations/GameEndIllustration";
 
 interface Player {
     id: string;
@@ -30,7 +31,7 @@ export const GameResultOverlay: React.FC<GameResultOverlayProps> = ({ players, i
 
                 {/* Header Section - Minimal */}
                 <div className="flex items-center justify-around shrink-0 mb-6 w-full">
-                    <Trophy className="w-16 h-16 text-green-900" strokeWidth={1.5} />
+                    <GameEndIllustration />
                     <div className="flex flex-col items-center">
                         <h2 className="text-4xl font-bold mb-2 tracking-tight">
                             Game Over

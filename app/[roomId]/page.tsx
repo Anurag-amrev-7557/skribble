@@ -16,6 +16,8 @@ import { GameTimer } from "@/components/GameTimer";
 import { Brain, Palette, Sparkles, Clock, Check, Pencil, ThumbsUp, ThumbsDown } from "lucide-react";
 import Link from "next/link";
 import { useGameSounds } from "@/hooks/useGameSounds";
+import { Transition } from "@/components/ui/Transition";
+import { WordChoosingIllustration } from "@/components/illustrations/WordChoosingIllustration";
 
 export default function RoomPage() {
     const params = useParams();
@@ -119,15 +121,6 @@ export default function RoomPage() {
     const handleInvite = () => {
         const url = window.location.href;
         navigator.clipboard.writeText(url);
-        // Add system message to local chat (or just alert/toast)
-        // Since we don't have direct access to ChatBox state here easily without context or lifting state, 
-        // we can just emit a "system-message" to self or just use alert for now, 
-        // OR rely on the user requirement "listed in chat list".
-        // The best way is to let ChatBox handle it or emit a client-only message.
-        // For now, I'll alert and maybe ChatBox can listen to a window event or I can pass a ref.
-        // Actually, simple solution: use socket to emit a "me-only" message? No, socket is server.
-        // Let's just use a window alert or toast. The user requirement "listed in chat list" is tricky without context.
-        // I will focus on the copying part first.
         alert("Room link copied to clipboard!");
     };
 
@@ -145,12 +138,6 @@ export default function RoomPage() {
     const isDrawer = gameState.currentDrawer === socket.id;
     const isPrivateRoomLobby = gameState.isPrivate && gameState.state === 'WAITING';
     const isHost = gameState.hostId === socket.id;
-    console.log("[DEBUG] Render:", {
-        isPrivate: gameState.isPrivate,
-        state: gameState.state,
-        hostId: gameState.hostId,
-        myId: socket.id
-    });
 
     return (
         <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
@@ -389,7 +376,6 @@ export default function RoomPage() {
                         )}
 
                         {/* Desktop Toolbar Overlay */}
-                        {/* Desktop Toolbar Overlay */}
                         {isDrawer && (
                             <div className="hidden md:flex absolute bottom-6 left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-none">
                                 <div className="pointer-events-auto">
@@ -437,45 +423,52 @@ export default function RoomPage() {
 
                         {/* Overlays (Word Select, Results, etc) */}
                         {/* Word Selection Overlay */}
-                        {gameState.state === 'SELECTING_WORD' && (
-                            <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
-                                {isDrawer ? (
-                                    <>
-                                        <div className="mb-4 md:mb-6">
-                                            <Palette className="w-12 h-12 md:w-16 md:h-16 text-white" />
-                                        </div>
-                                        <div className="text-xl md:text-3xl font-black mb-4 md:mb-8 tracking-tight">Choose a Word to Draw!</div>
-                                        <div className="flex flex-wrap gap-2 md:gap-4 justify-center max-w-2xl">
-                                            {wordOptions.map((word) => (
-                                                <Button key={word} onClick={() => handleSelectWord(word)} className="h-10 md:h-14 px-4 md:px-8 text-sm md:text-2xl rounded-full bg-white shadow-lg text-black hover:bg-white hover:text-black">{word}</Button>
-                                            ))}
-                                        </div>
-                                        <div className="mt-8 text-white/50 animate-pulse text-sm font-mono whitespace-nowrap flex items-center gap-1">
-                                            Auto-selecting in <GameTimer />s...
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="mb-6">
-                                            <Brain className="w-16 h-16 text-white" />
-                                        </div>
-                                        <h2 className="text-lg md:text-3xl font-black tracking-tight text-center">{gameState.players.find((p: any) => p.isDrawer)?.name || "Drawer"} is choosing a word...</h2>
-                                        <p className="text-white/50 mt-4">Get ready to guess!</p>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                        <Transition
+                            show={gameState.state === 'SELECTING_WORD'}
+                            className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 p-4 text-center"
+                        >
+                            {isDrawer ? (
+                                <>
+                                    <div className="mb-4 md:mb-6">
+                                        <WordChoosingIllustration />
+                                    </div>
+                                    <div className="text-xl md:text-3xl font-black mb-4 md:mb-8 tracking-tight">Choose a Word to Draw!</div>
+                                    <div className="flex flex-wrap gap-2 md:gap-4 justify-center max-w-2xl">
+                                        {wordOptions.map((word) => (
+                                            <Button key={word} onClick={() => handleSelectWord(word)} className="h-10 md:h-14 px-4 md:px-8 text-sm md:text-2xl rounded-full bg-white shadow-lg text-black hover:bg-white hover:text-black">{word}</Button>
+                                        ))}
+                                    </div>
+                                    <div className="mt-8 text-white/50 animate-pulse text-sm font-mono whitespace-nowrap flex items-center gap-1">
+                                        Auto-selecting in <GameTimer />s...
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="mb-6">
+                                        <WordChoosingIllustration />
+                                    </div>
+                                    <h2 className="text-lg md:text-3xl font-black tracking-tight text-center">{gameState.players.find((p: any) => p.isDrawer)?.name || "Drawer"} is choosing a word...</h2>
+                                    <p className="text-white/50 mt-4">Get ready to guess!</p>
+                                </>
+                            )}
+                        </Transition>
 
                         {/* Round Result Overlay */}
-                        {gameState.state === 'ROUND_END' && (
+                        <Transition
+                            show={gameState.state === 'ROUND_END'}
+                            className="absolute inset-0 z-50"
+                        >
                             <RoundResultOverlay
                                 word={gameState.currentWord || "Unknown"}
                                 players={gameState.players}
                             />
-                        )}
+                        </Transition>
 
                         {/* Game End Overlay */}
-                        {gameState.state === 'GAME_END' && (
+                        <Transition
+                            show={gameState.state === 'GAME_END'}
+                            className="absolute inset-0 z-50"
+                        >
                             <GameResultOverlay
                                 players={gameState.players}
                                 isHost={isHost}
@@ -483,7 +476,7 @@ export default function RoomPage() {
                                 onBackToLobby={() => window.location.href = '/'}
                                 onRestart={() => socket.emit("request-restart", { roomId })}
                             />
-                        )}
+                        </Transition>
                     </div>
                 </div>
             </div>
@@ -518,7 +511,7 @@ export default function RoomPage() {
 
             {/* Mobile Input Bar */}
             <div className={`
-                ${isInputFocused ? 'row-start-2' : (isDrawer ? 'row-start-4' : 'row-start-3')} col-span-2
+                ${isInputFocused ? 'row-start-2 pb-24' : (isDrawer ? 'row-start-4' : 'row-start-3')} col-span-2
                 md:hidden
                 w-full bg-background border-t z-50 transition-all duration-200`}>
                 <form onSubmit={(e) => {
