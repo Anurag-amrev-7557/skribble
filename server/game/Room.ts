@@ -434,6 +434,9 @@ export class Room {
                     type: 'system'
                 });
 
+                // Reveal word to the successful guesser
+                this.io.to(player.id).emit('reveal-word', { word: this.currentWord });
+
                 // End turn if EVERYONE has guessed (minus drawer)
                 const allGuessed = Array.from(this.players.values())
                     .filter(p => p.id !== this.currentDrawer)

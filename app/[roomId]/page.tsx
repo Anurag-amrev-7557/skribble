@@ -47,6 +47,7 @@ export default function RoomPage() {
     });
 
     const [wordOptions, setWordOptions] = useState<string[]>([]);
+    const [revealedWord, setRevealedWord] = useState<string | null>(null);
     const { playSound } = useGameSounds();
 
     useEffect(() => {
@@ -71,6 +72,9 @@ export default function RoomPage() {
             setGameState(newState);
         });
         socket.on("choose-word", setWordOptions);
+        socket.on("reveal-word", ({ word }: { word: string }) => {
+            setRevealedWord(word);
+        });
         // Removed timer-update listener from here
 
         // Clear word options on round end to be safe
@@ -81,6 +85,7 @@ export default function RoomPage() {
         return () => {
             socket.off("room-state");
             socket.off("choose-word");
+            socket.off("reveal-word");
             // socket.off("timer-update");
         };
     }, [roomId, playerName]);
@@ -263,7 +268,7 @@ export default function RoomPage() {
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:top-4 md:translate-y-0 w-auto">
                         <div className="flex flex-col items-center">
                             <div className="md:hidden flex flex-col items-center">
-                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">{gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}</div>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">{gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}</div>
                                 {isDrawer ? (
                                     <div className="text-lg font-black tracking-widest text-primary">{gameState.currentWord || "..."}</div>
                                 ) : (
@@ -276,19 +281,34 @@ export default function RoomPage() {
                             </div>
                             <div className="hidden md:flex bg-white dark:bg-zinc-900 shadow-xl rounded-2xl px-8 py-3 border-b-4 border-primary/20 flex-col items-center min-w-[300px] transition-all duration-500 scale-100">
                                 {gameState.state === 'WAITING' ? (
-                                    <div className="text-sm font-bold tracking-widest text-muted-foreground animate-pulse">WAITING TO START...</div>
+                                    <div className="text-sm tracking-widest text-muted-foreground animate-pulse">WAITING TO START...</div>
                                 ) : isDrawer ? (
                                     <>
-                                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">DRAW THIS</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">DRAW THIS</div>
                                         <div className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-600 animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">GUESS THIS</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">GUESS THIS</div>
                                         <div className="text-2xl font-black tracking-widest flex gap-3 text-foreground/80">
-                                            {(gameState.maskedWord || "").split('').map((char: string, i: number) => (
-                                                <span key={i} className={`border-b-[3px] w-8 text-center transition-all duration-300 ${char !== '_' ? 'border-primary/50 text-foreground -translate-y-1' : 'border-foreground/20 text-transparent'}`}>{char === '_' ? '\u00A0' : char}</span>
-                                            ))}
+                                            {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
+                                                const isRevealed = revealedWord || (gameState.maskedWord && gameState.maskedWord[i] !== '_');
+                                                // If revealedWord is set, ALL are revealed.
+                                                // If just maskedWord, only non-underscore are revealed.
+                                                // We want to animate if it wasn't revealed before? 
+                                                // Simple animation: key by index, if char changes from _ to Letter, animate.
+                                                return (
+                                                    <span key={`${i}-${char}`} className={`
+                                                        border-b-[3px] w-8 text-center transition-all duration-300 transform
+                                                        ${char !== '_'
+                                                            ? 'border-primary/50 text-foreground -translate-y-1 animate-in zoom-in spin-in-x duration-500'
+                                                            : 'border-foreground/20 text-transparent'}
+                                                        ${revealedWord && char !== '_' ? 'text-green-600 dark:text-green-400 scale-110' : ''}
+                                                    `}>
+                                                        {char === '_' ? '\u00A0' : char}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
                                     </>
                                 )}
