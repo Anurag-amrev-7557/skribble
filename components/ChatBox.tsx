@@ -65,7 +65,7 @@ export function ChatBox({ roomId, playerName, onSound }: ChatBoxProps) {
                         return (
                             <div key={i} className={`text-[12px] mb-0 p-1 ${isSuccess
                                 ? (i % 2 === 0 ? 'bg-green-200 dark:bg-green-800/40 text-green-800 dark:text-green-100' : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-100')
-                                : (i % 2 === 0 ? 'bg-muted' : 'bg-transparent') + (msg.type === 'system' ? '' : '')
+                                : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent') + (msg.type === 'system' ? '' : '')
                                 }`}>
                                 {msg.type !== 'system' && <span className="font-bold text-foreground/80">{msg.sender}: </span>}
                                 {msg.type === 'system' ? (

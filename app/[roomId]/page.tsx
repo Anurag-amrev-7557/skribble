@@ -180,7 +180,7 @@ export default function RoomPage() {
                                 onClick={() => setSelectedPlayer(p)} // Set selected player on click
                                 className={`cursor-pointer group relative flex items-center gap-2 md:gap-3 p-1 md:p-2 mb-0 transition-all duration-300 border-b hover:shadow-md hover:scale-[1.02] ${p.hasGuessed
                                     ? (i % 2 === 0 ? 'bg-green-200 dark:bg-green-800/40' : 'bg-green-100 dark:bg-green-900/30') // Green (Success) takes priority
-                                    : (p.id === socket.id ? 'bg-primary/5' : (i % 2 === 0 ? 'bg-muted' : 'bg-transparent')) // Else Blue (Self) or Standard Stripe
+                                    : (p.id === socket.id ? 'bg-primary/5' : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent')) // Else Blue (Self) or Standard Stripe
                                     } ${p.id === socket.id
                                         ? "border-primary/50 shadow-sm ring-1 ring-primary/20"
                                         : "border-transparent"
