@@ -3,63 +3,95 @@ import { motion } from 'framer-motion';
 
 export const RoundResultIllustration = () => {
     return (
-        <div className="relative w-full h-32 flex items-center justify-center overflow-hidden mb-2">
-            {/* Spotlight Beam */}
+        <div className="relative w-full h-28 flex items-center justify-center overflow-hidden mb-2">
+            {/* Subtle spotlight */}
             <motion.div
-                className="absolute top-0 w-24 h-48 bg-gradient-to-b from-white/20 to-transparent blur-xl origin-top"
-                initial={{ rotate: -15, opacity: 0 }}
+                className="absolute top-0 w-20 h-40 bg-gradient-to-b from-indigo-400/20 to-transparent blur-xl origin-top"
                 animate={{
-                    rotate: [-15, 15, -15],
-                    opacity: [0, 0.4, 0]
+                    rotate: [-10, 10, -10],
+                    opacity: [0, 0.3, 0],
                 }}
                 transition={{
                     duration: 4,
                     repeat: Infinity,
-                    ease: "easeInOut"
+                    ease: "easeInOut",
                 }}
             />
 
             <svg
-                viewBox="0 0 300 100"
+                viewBox="0 0 300 90"
                 className="w-full h-full"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
             >
-                {/* Text Placeholder / Decoration */}
+                {/* Animated checkmark in circle */}
+                <motion.circle
+                    cx="150"
+                    cy="45"
+                    r="28"
+                    stroke="#6366F1"
+                    strokeWidth="3"
+                    fill="#6366F1"
+                    fillOpacity="0.15"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                />
                 <motion.path
-                    d="M 50 80 Q 150 100 250 80"
-                    stroke="#4ADE80"
-                    strokeWidth="2"
+                    d="M 137 45 L 146 54 L 163 37"
+                    stroke="#A5B4FC"
+                    strokeWidth="4"
                     strokeLinecap="round"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 1, delay: 0.5 }}
+                    strokeLinejoin="round"
+                    fill="none"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
                 />
 
-                {/* Stars Popping */}
-                {[0, 1, 2, 3, 4].map((i) => (
-                    <motion.g
+                {/* Confetti dots bursting outward */}
+                {[
+                    { x: -40, y: -25, color: "#818CF8", delay: 0.4 },
+                    { x: 40, y: -20, color: "#A5B4FC", delay: 0.5 },
+                    { x: -30, y: 25, color: "#C7D2FE", delay: 0.6 },
+                    { x: 35, y: 30, color: "#6366F1", delay: 0.45 },
+                    { x: -50, y: 0, color: "#E0E7FF", delay: 0.55 },
+                    { x: 50, y: -5, color: "#818CF8", delay: 0.65 },
+                ].map((dot, i) => (
+                    <motion.circle
                         key={i}
-                        initial={{ scale: 0, opacity: 0, x: 150, y: 50 }}
+                        cx={150}
+                        cy={45}
+                        r="3"
+                        fill={dot.color}
+                        initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
                         animate={{
-                            scale: [0, 1, 0],
+                            x: dot.x,
+                            y: dot.y,
                             opacity: [0, 1, 0],
-                            x: 150 + (Math.random() - 0.5) * 200,
-                            y: 50 + (Math.random() - 0.5) * 80
+                            scale: [0, 1.2, 0],
                         }}
                         transition={{
-                            duration: 2,
+                            duration: 1.5,
+                            delay: dot.delay,
                             repeat: Infinity,
-                            delay: i * 0.4,
-                            repeatDelay: 1
+                            repeatDelay: 2,
                         }}
-                    >
-                        <path
-                            d="M 0 -10 L 2 -3 L 10 -3 L 4 2 L 6 10 L 0 5 L -6 10 L -4 2 L -10 -3 L -2 -3 Z"
-                            fill="#FACC15"
-                        />
-                    </motion.g>
+                    />
                 ))}
+
+                {/* Decorative curved line */}
+                <motion.path
+                    d="M 50 75 Q 150 90 250 75"
+                    stroke="#6366F1"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity="0.3"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 1, delay: 0.8 }}
+                />
             </svg>
         </div>
     );

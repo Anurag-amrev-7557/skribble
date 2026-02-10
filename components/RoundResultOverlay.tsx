@@ -30,7 +30,6 @@ export const RoundResultOverlay: React.FC<RoundResultOverlayProps> = ({ word, pl
 
     return (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 animate-in fade-in duration-300 p-4 text-center">
-            {/* Header */}
             <RoundResultIllustration />
             <div className="text-white/80 text-base md:text-lg mb-4 md:mb-6">
                 The word was <span className="font-extrabold text-green-400">{word}</span>

@@ -155,7 +155,7 @@ export default function RoomPage() {
                 w-full h-full flex flex-col md:p-4 z-20 shrink-0 bg-white/50 dark:bg-black/20 border-r border-t border-black/20 overflow-hidden`}>
                 <div className="mb-2 md:mb-6 px-1 md:px-2 hidden md:block">
                     <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity block">
-                        <h1 className="font-extrabold text-3xl tracking-tighter bg-gradient-to-br from-primary to-purple-600 bg-clip-text text-transparent drop-shadow-sm">
+                        <h1 className="font-extrabold text-3xl tracking-tighter bg-gradient-to-br from-primary to-indigo-600 bg-clip-text text-transparent drop-shadow-sm">
                             Skribble<span className="text-foreground">.io</span>
                         </h1>
                     </Link>

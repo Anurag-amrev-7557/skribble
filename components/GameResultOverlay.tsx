@@ -37,7 +37,7 @@ export const GameResultOverlay: React.FC<GameResultOverlayProps> = ({ players, i
                             Game Over
                         </h2>
                         <div className="text-xl opacity-70">
-                            Winner: <span className="text-green-900 font-bold">{winner.name}</span>
+                            Winner: <span className="text-green-400 font-bold">{winner.name}</span>
                         </div>
                     </div>
                 </div>
@@ -51,7 +51,7 @@ export const GameResultOverlay: React.FC<GameResultOverlayProps> = ({ players, i
                     {sortedPlayers.map((player, index) => (
                         <div
                             key={player.id}
-                            className={`flex items-center justify-between px-2 py-1 transition-opacity ${index === 0 ? 'text-green-900 font-bold' : 'opacity-80 hover:opacity-100'
+                            className={`flex items-center justify-between px-2 py-1 transition-opacity ${index === 0 ? 'text-green-500 font-bold' : 'opacity-80 hover:opacity-100'
                                 }`}
                         >
                             <div className="flex items-center gap-4">

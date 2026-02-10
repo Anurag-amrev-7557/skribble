@@ -35,7 +35,7 @@ export default function Home() {
         </div>
 
         <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl text-center flex flex-col items-center hover:bg-white/15 transition-colors group cursor-default">
-          <div className="bg-purple-500/20 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
+          <div className="bg-indigo-500/20 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
             <PenTool className="w-8 h-8 text-white" />
           </div>
           <h3 className="text-xl font-black text-white mb-2 tracking-tight">Draw & Guess</h3>
