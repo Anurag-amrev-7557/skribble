@@ -35,6 +35,25 @@ export default function RoomPage() {
     const [tool, setTool] = useState<'pen' | 'eraser' | 'fill'>('pen');
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    // Detect mobile keyboard via visualViewport API
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        const handleResize = () => {
+            const offsetFromBottom = window.innerHeight - vv.height - vv.offsetTop;
+            setKeyboardHeight(Math.max(0, offsetFromBottom));
+        };
+
+        vv.addEventListener('resize', handleResize);
+        vv.addEventListener('scroll', handleResize);
+        return () => {
+            vv.removeEventListener('resize', handleResize);
+            vv.removeEventListener('scroll', handleResize);
+        };
+    }, []);
 
 
     const [gameState, setGameState] = useState<any>({
@@ -510,10 +529,13 @@ export default function RoomPage() {
             </div>
 
             {/* Mobile Input Bar */}
-            <div className={`
-                ${isInputFocused ? 'row-start-2 pb-24' : (isDrawer ? 'row-start-4' : 'row-start-3')} col-span-2
+            <div
+                className={`
+                ${isInputFocused ? 'fixed left-0 right-0 z-[9999]' : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'}
                 md:hidden
-                w-full bg-background border-t z-50 transition-all duration-200`}>
+                w-full bg-background border-t transition-all duration-200`}
+                style={isInputFocused ? { bottom: `${keyboardHeight}px` } : undefined}
+            >
                 <form onSubmit={(e) => {
                     e.preventDefault();
                     const form = e.currentTarget;
@@ -531,6 +553,7 @@ export default function RoomPage() {
                         autoComplete="off"
                         onFocus={() => setIsInputFocused(true)}
                         onBlur={() => setTimeout(() => setIsInputFocused(false), 100)}
+
 
                     />
                     <Button
