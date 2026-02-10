@@ -193,7 +193,16 @@ export class Room {
     }
 
     broadcastState() {
-        const playersList = Array.from(this.players.values());
+        const playersList = Array.from(this.players.values()).map(p => ({
+            id: p.id,
+            name: p.name,
+            score: p.score,
+            lastTurnScore: p.lastTurnScore,
+            isDrawer: p.isDrawer,
+            hasGuessed: p.hasGuessed,
+            avatar: p.avatar,
+            isDisconnected: p.isDisconnected,
+        }));
         this.io.to(this.id).emit('room-state', {
             id: this.id,
             players: playersList,
@@ -202,9 +211,9 @@ export class Room {
             round: this.round,
             totalRounds: this.totalRounds,
             timeRemaining: this.timeRemaining,
-            currentWord: (this.state === GameState.DRAWING || this.state === GameState.ROUND_END) ? this.currentWord : null, // Show word at Round End too
-            maskedWord: this.maskedWord, // Broadcast masked word
-            wordOptions: this.state === GameState.SELECTING_WORD ? [] : null, // Don't broadcast options to everyone generally
+            currentWord: (this.state === GameState.DRAWING || this.state === GameState.ROUND_END) ? this.currentWord : null,
+            maskedWord: this.maskedWord,
+            wordOptions: this.state === GameState.SELECTING_WORD ? [] : null,
             isPrivate: this.isPrivate,
             hostId: this.hostId,
             settings: this.settings
@@ -584,5 +593,75 @@ export class Room {
             type: 'feedback', // specialized type for styling if needed
             rating: rating
         });
+    }
+
+    // ---------- Reconnection Support ----------
+
+    /**
+     * Mark a player as disconnected (grace period) rather than removing immediately.
+     */
+    markDisconnected(playerId: string) {
+        const player = this.players.get(playerId);
+        if (!player) return;
+
+        player.isDisconnected = true;
+        player.disconnectedAt = Date.now();
+
+        console.log(`[Room ${this.id}] Player ${player.name} marked as disconnected (grace period)`);
+
+        this.io.to(this.id).emit('chat-message', {
+            sender: 'System',
+            text: `${player.name} lost connection. Waiting for reconnect...`,
+            type: 'system'
+        });
+
+        this.broadcastState();
+
+        // If the disconnected player is the drawer, skip their turn
+        if (this.currentDrawer === playerId && this.state === GameState.DRAWING) {
+            console.log(`[Room ${this.id}] Drawer disconnected during drawing. Ending turn.`);
+            this.endTurn();
+        }
+    }
+
+    /**
+     * Reconnect a player who was in the grace period.
+     * Transfers their state to the new socket ID.
+     */
+    reconnectPlayer(oldPlayerId: string, newSocketId: string, name: string, socket: Socket, avatar?: any): boolean {
+        const player = this.players.get(oldPlayerId);
+        if (!player) return false;
+
+        // Transfer the Player to the new socket ID
+        this.players.delete(oldPlayerId);
+        player.id = newSocketId;
+        player.isDisconnected = false;
+        player.disconnectedAt = null;
+        if (avatar) player.avatar = avatar;
+        this.players.set(newSocketId, player);
+
+        // Update host reference if needed
+        if (this.hostId === oldPlayerId) {
+            this.hostId = newSocketId;
+        }
+
+        // Update drawer reference if needed
+        if (this.currentDrawer === oldPlayerId) {
+            this.currentDrawer = newSocketId;
+        }
+
+        // Join the socket.io room
+        socket.join(this.id);
+
+        console.log(`[Room ${this.id}] Player ${name} reconnected (${oldPlayerId} -> ${newSocketId})`);
+
+        this.io.to(this.id).emit('chat-message', {
+            sender: 'System',
+            text: `${name} reconnected!`,
+            type: 'system'
+        });
+
+        this.broadcastState();
+        return true;
     }
 }

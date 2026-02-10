@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { Transition } from "@/components/ui/Transition";
 import { WordChoosingIllustration } from "@/components/illustrations/WordChoosingIllustration";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 export default function RoomPage() {
     const params = useParams();
@@ -71,31 +72,65 @@ export default function RoomPage() {
     const [revealedWord, setRevealedWord] = useState<string | null>(null);
     const { playSound } = useGameSounds();
 
+    // ---------- Connection & Reconnection Logic ----------
     useEffect(() => {
         if (!socket.connected) {
             socket.connect();
         }
 
-        socket.emit("join-room", { roomId, name: playerName, avatar: initialAvatar }, (response: any) => {
+        // Attempt rejoin if we have an old socket ID (page refresh / reconnect)
+        const oldSocketId = sessionStorage.getItem(`skribble-socket-${roomId}`);
+        const joinEvent = oldSocketId ? 'rejoin-room' : 'join-room';
+        const joinPayload = oldSocketId
+            ? { roomId, name: playerName, avatar: initialAvatar, oldSocketId }
+            : { roomId, name: playerName, avatar: initialAvatar };
+
+        socket.emit(joinEvent, joinPayload, (response: any) => {
             if (response.success) {
                 setGameState(response.roomState);
+                // Store current socket ID for future reconnections
+                if (socket.id) {
+                    sessionStorage.setItem(`skribble-socket-${roomId}`, socket.id);
+                }
                 playSound('join');
             } else {
                 window.location.href = '/';
             }
         });
 
+        // On reconnect, re-emit rejoin to restore room membership
+        const handleReconnect = () => {
+            const prevId = sessionStorage.getItem(`skribble-socket-${roomId}`);
+            socket.emit('rejoin-room', {
+                roomId,
+                name: playerName,
+                avatar: initialAvatar,
+                oldSocketId: prevId,
+            }, (response: any) => {
+                if (response.success) {
+                    setGameState(response.roomState);
+                    if (socket.id) {
+                        sessionStorage.setItem(`skribble-socket-${roomId}`, socket.id);
+                    }
+                } else {
+                    window.location.href = '/';
+                }
+            });
+        };
+
+        socket.on("connect", handleReconnect);
+
         socket.on("room-state", (newState: any) => {
-            // We strip timeRemaining to avoid re-renders if the server sends it in room-state often
-            // But normally room-state is only sent on distinct changes.
-            // Be careful not to cause loops.
             setGameState(newState);
+            // Keep socket ID in sync
+            if (socket.id) {
+                sessionStorage.setItem(`skribble-socket-${roomId}`, socket.id);
+            }
         });
         socket.on("choose-word", setWordOptions);
         socket.on("reveal-word", ({ word }: { word: string }) => {
             setRevealedWord(word);
         });
-        // Removed timer-update listener from here
 
         // Clear word options on round end to be safe
         if (gameState.state === 'ROUND_END') {
@@ -103,10 +138,10 @@ export default function RoomPage() {
         }
 
         return () => {
+            socket.off("connect", handleReconnect);
             socket.off("room-state");
             socket.off("choose-word");
             socket.off("reveal-word");
-            // socket.off("timer-update");
         };
     }, [roomId, playerName]);
 
@@ -159,13 +194,16 @@ export default function RoomPage() {
     const isHost = gameState.hostId === socket.id;
 
     return (
-        <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 
+        <div className={`grid h-[100dvh] bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-background to-background dark:from-indigo-950/30 dark:via-background dark:to-background overflow-hidden font-sans text-foreground selection:bg-primary/20 relative 
             grid-cols-2 ${isInputFocused && !isDrawer
                 ? 'grid-rows-[1fr_auto]' // Focused: Header+Canvas (1fr), Input (auto)
                 : isDrawer
                     ? 'grid-rows-[auto_auto_1fr_auto]' // Drawer: Header, Toolbar, Canvas, Chat
                     : 'grid-rows-[auto_1fr_auto]'} // Default: Header+Canvas, Players/Chat, Input
             md:grid-cols-[300px_1fr_320px] md:grid-rows-1 overscroll-none`}>
+
+            {/* Connection Status Indicator */}
+            <ConnectionStatus />
 
             {/* players AREA */}
             <div className={`
@@ -188,9 +226,9 @@ export default function RoomPage() {
                             <div
                                 key={p.id}
                                 onClick={() => setSelectedPlayer(p)} // Set selected player on click
-                                className={`cursor-pointer group relative flex items-center gap-2 md:gap-3 p-1 md:p-2 mb-0 transition-all duration-300 border-b hover:shadow-md hover:scale-[1.02] ${p.hasGuessed
-                                    ? (i % 2 === 0 ? 'bg-green-400/70 dark:bg-green-600/60' : 'bg-green-300/70 dark:bg-green-700/50') // Green (Success) takes priority
-                                    : (p.id === socket.id ? 'bg-primary/5' : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent')) // Else Blue (Self) or Standard Stripe
+                                className={`cursor-pointer group relative flex items-center gap-2 md:gap-3 p-1 md:p-2 mb-0 transition-all duration-300 border-b hover:shadow-md hover:scale-[1.02] ${p.isDisconnected ? 'opacity-50' : ''} ${p.hasGuessed
+                                    ? (i % 2 === 0 ? 'bg-green-400/70 dark:bg-green-600/60' : 'bg-green-300/70 dark:bg-green-700/50')
+                                    : (p.id === socket.id ? 'bg-primary/5' : (i % 2 === 0 ? 'bg-black/5' : 'bg-transparent'))
                                     } ${p.id === socket.id
                                         ? "border-primary/50 shadow-sm ring-1 ring-primary/20"
                                         : "border-transparent"

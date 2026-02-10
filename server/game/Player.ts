@@ -19,6 +19,8 @@ export class Player implements IPlayer {
     public avatar: any;
     public lastMessageTime: number;
     public kickVotes: Set<string>; // Stores IDs of voters
+    public isDisconnected: boolean;
+    public disconnectedAt: number | null;
 
     constructor(id: string, name: string, avatar: any) {
         this.id = id;
@@ -30,6 +32,8 @@ export class Player implements IPlayer {
         this.avatar = avatar || { skinColor: "#FFDFC4", eyes: 0, mouth: 0, accessory: 0 };
         this.lastMessageTime = 0;
         this.kickVotes = new Set();
+        this.isDisconnected = false;
+        this.disconnectedAt = null;
     }
 
     resetRoundState() {
