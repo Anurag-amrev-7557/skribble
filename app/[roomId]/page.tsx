@@ -645,7 +645,7 @@ export default function RoomPage() {
                         value={mobileInputText}
                         onChange={(e) => setMobileInputText(e.target.value)}
                         onFocus={() => setIsInputFocused(true)}
-                        onBlur={() => setTimeout(() => setIsInputFocused(false), 100)}
+                        onBlur={() => setTimeout(() => setIsInputFocused(false), 10)}
                     />
 
                     {/* Character Count Indicator */}

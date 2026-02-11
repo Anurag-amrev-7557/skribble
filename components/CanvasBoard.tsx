@@ -62,14 +62,35 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             const points = pendingPoints.current;
             if (points.length < 2) return;
 
-            const { color, width, tool } = strokeConfig.current;
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+
+            // Normalize points (0 to 1)
+            // We round to 5 decimal places to save bandwidth and avoid floating point weirdness
+            const width = canvas.width / (window.devicePixelRatio || 1); // Logical width
+            const height = canvas.height / (window.devicePixelRatio || 1); // Logical height 
+            // Wait, flushBuffer uses logical coordinates from getCoordinates? 
+            // Yes, pendingPoints are logical coordinates (CSS pixels).
+            // So we divide by clientWidth/Height (which matches logical resolution).
+            // canvas.width is physical. canvas.style.width (or getBoundingClientRect) is logical.
+
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            const normalizedPoints = points.map(p => ({
+                x: parseFloat((p.x / w).toFixed(5)),
+                y: parseFloat((p.y / h).toFixed(5))
+            }));
+
+            const { color, width: lineWidth, tool } = strokeConfig.current;
 
             socket.emit("draw-stroke", {
                 roomId,
                 stroke: {
                     color: tool === 'eraser' ? '#ffffff' : color,
-                    width,
-                    points: [...points]
+                    width: lineWidth,
+                    points: normalizedPoints
                 }
             });
 
@@ -85,6 +106,10 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.lineCap = 'round';
@@ -92,11 +117,20 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         actions.forEach(action => {
             if (action.type === 'stroke') {
-                const { points, color, width } = action;
-                if (!points || points.length < 2) return;
+                const { points: rawPoints, color, width } = action;
+                if (!rawPoints || rawPoints.length < 2) return;
+
+                // Denormalize if needed
+                const points = rawPoints.map(p => {
+                    if (p.x <= 1 && p.y <= 1 && p.x >= 0 && p.y >= 0) {
+                        return { x: p.x * w, y: p.y * h };
+                    }
+                    return p; // Legacy absolute
+                });
+
                 ctx.beginPath();
                 ctx.strokeStyle = color;
-                ctx.lineWidth = width;
+                ctx.lineWidth = width; // Note: we might want to scale width relative to canvas size too? For now keep absolute.
 
                 // Quadratic Curve Smoothing
                 ctx.moveTo(points[0].x, points[0].y);
@@ -116,7 +150,13 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
                 }
                 ctx.stroke();
             } else if (action.type === 'fill') {
-                const { x, y, color } = action;
+                // Denormalize fill
+                let { x, y, color } = action;
+                const isNormalized = x <= 1 && y <= 1 && x >= 0 && y >= 0;
+                if (isNormalized) {
+                    x = x * w;
+                    y = y * h;
+                }
                 floodFill(ctx, x, y, color);
             }
         });
@@ -272,13 +312,28 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            const { points, color, width } = stroke;
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            const { points: rawPoints, color, width } = stroke;
+
+            // Denormalize
+            const points = rawPoints.map(p => {
+                // Heuristic: if <= 1, it's normalized. Only valid because canvas is definitely > 1px.
+                if (p.x <= 1 && p.y <= 1 && p.x >= 0 && p.y >= 0) {
+                    return { x: p.x * w, y: p.y * h };
+                }
+                return p;
+            });
 
             ctx.beginPath();
             ctx.strokeStyle = color;
             ctx.lineWidth = width;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+
+            if (points.length === 0) return;
 
             ctx.moveTo(points[0].x, points[0].y);
 
@@ -298,7 +353,8 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             }
             ctx.stroke();
 
-            setHistory(prev => [...prev, { type: 'stroke', points, color, width }]);
+            // Store raw (likely normalized) points in history to support future resizes
+            setHistory(prev => [...prev, { ...stroke, type: 'stroke' }]);
         };
 
         const handleRemoteUndo = () => {
@@ -310,13 +366,25 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         };
 
         const handleRemoteFill = (data: { x: number, y: number, color: string }) => {
-            const { x, y, color } = data;
+            const { x: rawX, y: rawY, color } = data;
             const canvas = canvasRef.current;
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
+
+            const rect = canvas.getBoundingClientRect();
+            let x = rawX;
+            let y = rawY;
+
+            // Denormalize if needed
+            if (rawX <= 1 && rawY <= 1 && rawX >= 0 && rawY >= 0) {
+                x = rawX * rect.width;
+                y = rawY * rect.height;
+            }
+
             floodFill(ctx, x, y, color);
-            setHistory(prev => [...prev, { type: 'fill', x, y, color }]);
+            // Save raw (normalized) coords to history
+            setHistory(prev => [...prev, { type: 'fill', x: rawX, y: rawY, color }]);
         };
 
         const handleClear = () => {
@@ -373,7 +441,13 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         if (tool === 'fill') {
             floodFill(ctx, x, y, color);
-            const action: DrawAction = { type: 'fill', x, y, color };
+
+            // Normalize for history/socket
+            const rect = canvas.getBoundingClientRect();
+            const normX = parseFloat((x / rect.width).toFixed(5));
+            const normY = parseFloat((y / rect.height).toFixed(5));
+
+            const action: DrawAction = { type: 'fill', x: normX, y: normY, color };
             setHistory(prev => [...prev, action]);
             socket.emit('fill-canvas', { roomId, ...action });
             return;
@@ -433,9 +507,18 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         const points = (canvas as any).currentStroke;
 
         if (points && points.length > 0) {
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            const normalizedPoints = points.map((p: any) => ({
+                x: parseFloat((p.x / w).toFixed(5)),
+                y: parseFloat((p.y / h).toFixed(5))
+            }));
+
             const action: DrawAction = {
                 type: 'stroke',
-                points: [...points],
+                points: normalizedPoints,
                 color: tool === 'eraser' ? '#ffffff' : color,
                 width: lineWidth
             };
