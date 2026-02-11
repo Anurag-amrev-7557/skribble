@@ -37,6 +37,7 @@ export default function RoomPage() {
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const mobileInputRef = useRef<HTMLInputElement>(null);
 
     // Detect mobile keyboard via visualViewport API
     useEffect(() => {
@@ -46,10 +47,20 @@ export default function RoomPage() {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
         const handleResize = () => {
+            const currentHeight = vv.height;
+            const fullHeight = window.innerHeight;
+
             if (isIOS) {
-                const offsetFromBottom = window.innerHeight - vv.height - vv.offsetTop;
+                const offsetFromBottom = fullHeight - currentHeight - vv.offsetTop;
                 setKeyboardHeight(Math.max(0, offsetFromBottom));
             } else {
+                // Android/Other: If viewport is nearly full height (keyboard closed), reset focus
+                if (currentHeight > fullHeight * 0.8) {
+                    setIsInputFocused(false);
+                    if (document.activeElement === mobileInputRef.current) {
+                        mobileInputRef.current?.blur();
+                    }
+                }
                 setKeyboardHeight(0);
             }
         };
@@ -328,7 +339,12 @@ export default function RoomPage() {
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:top-4 md:translate-y-0 w-auto">
                         <div className="flex flex-col items-center">
                             <div className="md:hidden flex flex-col items-center">
-                                <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">{gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}</div>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                                    {gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}
+                                    <span className="ml-1 text-primary font-bold">
+                                        ({(revealedWord || gameState.maskedWord || gameState.currentWord || "").replace(/[^a-zA-Z]/g, "").length})
+                                    </span>
+                                </div>
                                 {isDrawer ? (
                                     <div className="text-lg font-black tracking-widest text-foreground">{gameState.currentWord || "..."}</div>
                                 ) : (
@@ -358,12 +374,18 @@ export default function RoomPage() {
                                     <div className="text-sm tracking-widest text-muted-foreground animate-pulse">WAITING TO START...</div>
                                 ) : isDrawer ? (
                                     <>
-                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">DRAW THIS</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                                            DRAW THIS
+                                            <span className="ml-1 text-primary font-bold">({(gameState.currentWord || "").length})</span>
+                                        </div>
                                         <div className="text-2xl font-black tracking-widest text-foreground animate-in fade-in zoom-in duration-300">{gameState.currentWord || "..."}</div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">GUESS THIS</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                                            GUESS THIS
+                                            <span className="ml-1 text-primary font-bold">({(revealedWord || gameState.maskedWord || "").replace(/[^a-zA-Z]/g, "").length})</span>
+                                        </div>
                                         <div className="text-2xl font-black tracking-widest flex gap-3 text-foreground/80">
                                             {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
                                                 const isRevealed = revealedWord || (gameState.maskedWord && gameState.maskedWord[i] !== '_');
@@ -590,6 +612,7 @@ export default function RoomPage() {
                     input.value = "";
                 }} className="flex">
                     <input
+                        ref={mobileInputRef}
                         name="mobile-guess"
                         type="text"
                         placeholder="Type your guess here..."
