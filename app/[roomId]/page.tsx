@@ -38,19 +38,21 @@ export default function RoomPage() {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const mobileInputRef = useRef<HTMLInputElement>(null);
+    const [isIOS, setIsIOS] = useState(false);
 
     // Detect mobile keyboard via visualViewport API
     useEffect(() => {
         const vv = window.visualViewport;
         if (!vv) return;
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        setIsIOS(isIOSDevice);
 
         const handleResize = () => {
             const currentHeight = vv.height;
             const fullHeight = window.innerHeight;
 
-            if (isIOS) {
+            if (isIOSDevice) {
                 const offsetFromBottom = fullHeight - currentHeight - vv.offsetTop;
                 setKeyboardHeight(Math.max(0, offsetFromBottom));
             } else {
@@ -342,7 +344,7 @@ export default function RoomPage() {
                                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">
                                     {gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}
                                     <span className="ml-1 text-primary font-bold">
-                                        ({(revealedWord || gameState.maskedWord || gameState.currentWord || "").replace(/[^a-zA-Z]/g, "").length})
+                                        ({(revealedWord || gameState.maskedWord || gameState.currentWord || "").replace(/[^a-zA-Z_]/g, "").length})
                                     </span>
                                 </div>
                                 {isDrawer ? (
@@ -384,7 +386,7 @@ export default function RoomPage() {
                                     <>
                                         <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                                             GUESS THIS
-                                            <span className="ml-1 text-primary font-bold">({(revealedWord || gameState.maskedWord || "").replace(/[^a-zA-Z]/g, "").length})</span>
+                                            <span className="ml-1 text-primary font-bold">({(revealedWord || gameState.maskedWord || "").replace(/[^a-zA-Z_]/g, "").length})</span>
                                         </div>
                                         <div className="text-2xl font-black tracking-widest flex gap-3 text-foreground/80">
                                             {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
@@ -597,10 +599,13 @@ export default function RoomPage() {
             {/* Mobile Input Bar */}
             <div
                 className={`
-                ${isInputFocused ? 'fixed left-0 right-0 z-[9999]' : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'}
+                ${isInputFocused
+                        ? (isIOS ? 'fixed left-0 right-0 z-[9999]' : 'row-start-2 col-span-2 z-[9999]')
+                        : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'
+                    }
                 md:hidden
                 w-full bg-background border-t transition-all duration-200`}
-                style={isInputFocused ? { bottom: `${keyboardHeight}px` } : undefined}
+                style={isInputFocused && isIOS ? { bottom: `${keyboardHeight}px` } : undefined}
             >
                 <form onSubmit={(e) => {
                     e.preventDefault();

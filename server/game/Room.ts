@@ -13,6 +13,7 @@ export class Room {
     public currentWord: string | null;
     public wordOptions: string[] = [];
     public maskedWord: string | null;
+    private usedWords: Set<string> = new Set();
     public round: number;
     public totalRounds: number;
     public maxPlayers: number;
@@ -158,6 +159,7 @@ export class Room {
         this.timeRemaining = 0;
         this.players.forEach(p => p.score = 0);
         this.drawingHistory = []; // Clear history
+        this.usedWords.clear();
 
         this.io.to(this.id).emit('chat-message', {
             sender: 'System',
@@ -257,7 +259,15 @@ export class Room {
     }
 
     generateWordOptions(count: number): string[] {
-        const shuffled = [...WORDS].sort(() => 0.5 - Math.random());
+        let availableWords = WORDS.filter(w => !this.usedWords.has(w));
+
+        if (availableWords.length < count) {
+            // Reset if we ran out of words
+            this.usedWords.clear();
+            availableWords = [...WORDS];
+        }
+
+        const shuffled = availableWords.sort(() => 0.5 - Math.random());
         return shuffled.slice(0, count);
     }
 
@@ -273,6 +283,7 @@ export class Room {
         if (this.timer) clearInterval(this.timer);
 
         this.currentWord = word;
+        this.usedWords.add(word);
         this.maskedWord = word.replace(/[A-Za-z]/g, "_");
 
         console.log(`Word selected: ${word}`);
@@ -446,6 +457,8 @@ export class Room {
     endGame() {
         this.state = GameState.GAME_END;
         this.currentDrawer = null;
+        this.drawingHistory = []; // Clear server-side history
+        this.io.to(this.id).emit('clear-canvas'); // Tell clients to clear
         this.broadcastState();
     }
 
@@ -462,6 +475,7 @@ export class Room {
         this.turnIndex = 0;
         this.timeRemaining = 0;
         this.drawingHistory = [];
+        this.usedWords.clear();
 
         this.players.forEach(p => {
             p.score = 0;
