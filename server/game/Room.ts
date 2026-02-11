@@ -57,7 +57,8 @@ export class Room {
         };
     }
 
-    addPlayer(id: string, name: string, socket: Socket, avatar?: any): Player {
+    addPlayer(id: string, userId: string, name: string, socket: Socket, avatar?: any): Player {
+        // 1. Check if this specific socket is already in (rare)
         if (this.players.has(id)) {
             const existingPlayer = this.players.get(id)!;
             existingPlayer.name = name;
@@ -65,6 +66,46 @@ export class Room {
 
             socket.join(this.id);
             this.broadcastState();
+            return existingPlayer;
+        }
+
+        // 2. Check if a player with this userId already exists (Reconnect / Refresh)
+        const existingPlayerEntry = Array.from(this.players.entries()).find(([_, p]) => p.userId === userId);
+
+        if (existingPlayerEntry) {
+            const [oldSocketId, existingPlayer] = existingPlayerEntry;
+
+            // If they are strictly disconnected or just refreshing, we take over.
+            // Even if 'isDisconnected' is false (maybe quick refresh), we treat same userId as same person.
+
+            console.log(`[Room ${this.id}] Player ${name} recognized by userId ${userId}. Reconnecting...`);
+
+            this.players.delete(oldSocketId);
+            existingPlayer.id = id; // Update to new socket ID
+            existingPlayer.name = name;
+            existingPlayer.isDisconnected = false;
+            existingPlayer.disconnectedAt = null;
+            if (avatar) existingPlayer.avatar = avatar;
+
+            this.players.set(id, existingPlayer);
+
+            // Update host/drawer if needed
+            if (this.hostId === oldSocketId) this.hostId = id;
+            if (this.currentDrawer === oldSocketId) this.currentDrawer = id;
+
+            socket.join(this.id);
+
+            // Send state immediately to the joining player (including history!)
+            socket.emit('room-state', this.getRoomState());
+
+            this.broadcastState();
+
+            this.io.to(this.id).emit('chat-message', {
+                sender: 'System',
+                text: `${name} reconnected!`,
+                type: 'system'
+            });
+
             return existingPlayer;
         }
 
@@ -79,7 +120,7 @@ export class Room {
             counter++;
         }
 
-        const player = new Player(id, name, avatar);
+        const player = new Player(id, userId, name, avatar);
 
         if (this.players.size === 0) {
             this.hostId = id;
@@ -235,12 +276,35 @@ export class Room {
 
         console.log(`[Method: startTurn] Round: ${this.round}, TurnIndex: ${this.turnIndex}, TotalPlayers: ${playerIds.length}`);
 
-        this.currentDrawer = playerIds[this.turnIndex % playerIds.length];
+        // Find the next connected player
+        let attempts = 0;
+        let foundDrawer = false;
+
+        while (attempts < playerIds.length) {
+            const potentialDrawerId = playerIds[this.turnIndex % playerIds.length];
+            const potentialDrawer = this.players.get(potentialDrawerId);
+
+            if (potentialDrawer && !potentialDrawer.isDisconnected) {
+                this.currentDrawer = potentialDrawerId;
+                foundDrawer = true;
+                break;
+            }
+
+            console.log(`Skipping disconnected player: ${potentialDrawer?.name}`);
+            this.turnIndex++;
+            attempts++;
+        }
+
+        if (!foundDrawer) {
+            console.log("No connected players found. Ending game.");
+            this.endGame();
+            return;
+        }
 
         console.log(`[Method: startTurn] Selected Drawer: ${this.currentDrawer}`);
 
         this.players.forEach(p => p.resetRoundState());
-        const drawer = this.players.get(this.currentDrawer);
+        const drawer = this.players.get(this.currentDrawer!);
         if (drawer) drawer.isDrawer = true;
 
         // Clear Canvas and History

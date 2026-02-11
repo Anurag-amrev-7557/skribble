@@ -34,3 +34,16 @@ socket.on("disconnect", (reason) => {
 socket.on("connect_error", (err) => {
     console.error("[Socket] Connection error:", err.message);
 });
+
+// ---------- User ID Management ----------
+
+export const getUserId = (): string => {
+    if (typeof window === 'undefined') return 'server-side-id';
+
+    let userId = localStorage.getItem('skribble-user-id');
+    if (!userId) {
+        userId = crypto.randomUUID();
+        localStorage.setItem('skribble-user-id', userId);
+    }
+    return userId;
+};

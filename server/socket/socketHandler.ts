@@ -46,12 +46,13 @@ export const setupSocketIO = (io: Server<ClientToServerEvents, ServerToClientEve
 
 
         // Create Room
-        socket.on('create-room', ({ name, avatar, isPrivate }, callback) => {
+        socket.on('create-room', ({ name, userId, avatar, isPrivate }, callback) => {
             try {
                 if (!callback) return;
                 const safeName = isValidString(name, 20) ? name.trim() : `Guest ${Math.floor(Math.random() * 9000) + 1000}`;
+                const safeUserId = isValidString(userId, 50) ? userId : socket.id; // Fallback if missing
 
-                const room = gameManager.createRoom(socket.id, safeName, socket, isPrivate);
+                const room = gameManager.createRoom(socket.id, safeUserId, safeName, socket, isPrivate);
                 const player = room.players.get(socket.id);
                 if (player) player.avatar = avatar;
                 room.broadcastState();
@@ -76,7 +77,7 @@ export const setupSocketIO = (io: Server<ClientToServerEvents, ServerToClientEve
         });
 
         // Join Room
-        socket.on('join-room', ({ roomId, name, avatar }, callback) => {
+        socket.on('join-room', ({ roomId, userId, name, avatar }, callback) => {
             try {
                 if (!callback) return;
                 if (!isValidRoomId(roomId)) {
@@ -84,9 +85,10 @@ export const setupSocketIO = (io: Server<ClientToServerEvents, ServerToClientEve
                     return;
                 }
                 const safeName = isValidString(name, 20) ? name.trim() : `Guest ${Math.floor(Math.random() * 9000) + 1000}`;
+                const safeUserId = isValidString(userId, 50) ? userId : socket.id;
 
-                console.log(`[Socket] Player ${safeName} joining room ${roomId}`);
-                const room = gameManager.joinRoom(roomId, socket.id, safeName, socket);
+                console.log(`[Socket] Player ${safeName} (User: ${safeUserId}) joining room ${roomId}`);
+                const room = gameManager.joinRoom(roomId, socket.id, safeUserId, safeName, socket);
 
                 const player = room.players.get(socket.id);
                 if (player) player.avatar = avatar;
@@ -99,8 +101,11 @@ export const setupSocketIO = (io: Server<ClientToServerEvents, ServerToClientEve
             }
         });
 
-        // Rejoin Room (reconnection)
-        socket.on('rejoin-room', ({ roomId, name, avatar, oldSocketId }, callback) => {
+        // Rejoin Room (reconnection) -- Kept for backward compatibility or explicit socket-id based claims,
+        // but mostly superceded by logic in joinRoom which handles userId based reconnection.
+        // We'll update it to just call joinRoom basically, or keep legacy logic if needed.
+        // Actually, let's make it just call proper logic or use userId if provided.
+        socket.on('rejoin-room', ({ roomId, userId, name, avatar, oldSocketId }, callback) => {
             try {
                 if (!callback) return;
                 if (!isValidRoomId(roomId)) {
@@ -109,19 +114,29 @@ export const setupSocketIO = (io: Server<ClientToServerEvents, ServerToClientEve
                 }
 
                 const safeName = isValidString(name, 20) ? name.trim() : `Guest`;
+                const safeUserId = isValidString(userId, 50) ? userId : socket.id;
 
-                // Attempt rejoin
+                // Attempt rejoin via specific old socket ID first (legacy path)
                 if (oldSocketId) {
-                    const room = gameManager.rejoinRoom(roomId, oldSocketId, socket.id, safeName, socket, avatar);
-                    if (room) {
-                        console.log(`[Socket] Player ${safeName} rejoined room ${roomId}`);
-                        callback({ success: true, roomState: room.getRoomState(), reconnected: true });
-                        return;
-                    }
+                    // Check if we can just re-map based on socket ID?
+                    // Verify if `rejoinRoom` in GameManager is needed or if `joinRoom` with `userId` is enough.
+                    // The `rejoinRoom` in GameManager is specialized for socket ID swapping.
+                    // Let's rely on that if oldSocketId is present, but maybe we should update it to also take userId?
+                    // For now, let's just delegate to joinRoom which handles userId reconnection internally in Room.addPlayer!
+                    // This simplifies everything.
+
+                    // Direct call to joinRoom which has our new logic:
+                    const room = gameManager.joinRoom(roomId, socket.id, safeUserId, safeName, socket);
+                    const player = room.players.get(socket.id);
+                    if (player) player.avatar = avatar;
+                    room.broadcastState();
+
+                    callback({ success: true, roomState: room.getRoomState(), reconnected: true });
+                    return;
                 }
 
-                // If rejoin failed, fall back to regular join
-                const room = gameManager.joinRoom(roomId, socket.id, safeName, socket);
+                // Default join
+                const room = gameManager.joinRoom(roomId, socket.id, safeUserId, safeName, socket);
                 const player = room.players.get(socket.id);
                 if (player) player.avatar = avatar;
                 room.broadcastState();

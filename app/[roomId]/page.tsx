@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
-import { socket } from "@/lib/socket";
+import { socket, getUserId } from "@/lib/socket";
 import { CanvasBoard, CanvasBoardRef } from "@/components/CanvasBoard";
 import { ChatBox } from "@/components/ChatBox";
 import { RoundResultOverlay } from "@/components/RoundResultOverlay";
@@ -108,10 +108,12 @@ export default function RoomPage() {
 
         // Attempt rejoin if we have an old socket ID (page refresh / reconnect)
         const oldSocketId = sessionStorage.getItem(`skribble-socket-${roomId}`);
+        const userId = getUserId();
+
         const joinEvent = oldSocketId ? 'rejoin-room' : 'join-room';
         const joinPayload = oldSocketId
-            ? { roomId, name: playerName, avatar: initialAvatar, oldSocketId }
-            : { roomId, name: playerName, avatar: initialAvatar };
+            ? { roomId, userId, name: playerName, avatar: initialAvatar, oldSocketId }
+            : { roomId, userId, name: playerName, avatar: initialAvatar };
 
         socket.emit(joinEvent, joinPayload, (response: any) => {
             if (response.success) {
@@ -129,8 +131,10 @@ export default function RoomPage() {
         // On reconnect, re-emit rejoin to restore room membership
         const handleReconnect = () => {
             const prevId = sessionStorage.getItem(`skribble-socket-${roomId}`);
+            const userId = getUserId();
             socket.emit('rejoin-room', {
                 roomId,
+                userId,
                 name: playerName,
                 avatar: initialAvatar,
                 oldSocketId: prevId || undefined,

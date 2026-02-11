@@ -1,6 +1,7 @@
 
 export interface IPlayer {
-    id: string;
+    id: string; // Socket ID
+    userId: string; // Persistent User ID
     name: string;
     score: number;
     isDrawer: boolean;
@@ -11,6 +12,7 @@ export interface IPlayer {
 
 export class Player implements IPlayer {
     public id: string;
+    public userId: string;
     public name: string;
     public score: number;
     public lastTurnScore: number;
@@ -22,8 +24,9 @@ export class Player implements IPlayer {
     public isDisconnected: boolean;
     public disconnectedAt: number | null;
 
-    constructor(id: string, name: string, avatar: any) {
+    constructor(id: string, userId: string, name: string, avatar: any) {
         this.id = id;
+        this.userId = userId;
         this.name = name;
         this.score = 0;
         this.lastTurnScore = 0;

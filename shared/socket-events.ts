@@ -89,9 +89,9 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-    'create-room': (data: { name: string; avatar?: any; isPrivate?: boolean }, callback: (res: { success: boolean; roomId?: string; error?: string }) => void) => void;
-    'join-room': (data: { roomId: string; name: string; avatar?: any }, callback: (res: { success: boolean; roomState?: RoomState; error?: string }) => void) => void;
-    'rejoin-room': (data: { roomId: string; name: string; avatar?: any; oldSocketId?: string }, callback: (res: { success: boolean; roomState?: RoomState; reconnected?: boolean; error?: string }) => void) => void;
+    'create-room': (data: { name: string; userId: string; avatar?: any; isPrivate?: boolean }, callback: (res: { success: boolean; roomId?: string; error?: string }) => void) => void;
+    'join-room': (data: { roomId: string; userId: string; name: string; avatar?: any }, callback: (res: { success: boolean; roomState?: RoomState; error?: string }) => void) => void;
+    'rejoin-room': (data: { roomId: string; userId: string; name: string; avatar?: any; oldSocketId?: string }, callback: (res: { success: boolean; roomState?: RoomState; reconnected?: boolean; error?: string }) => void) => void;
     'find-available-room': (callback: (res: { success: boolean; roomId?: string; error?: string }) => void) => void;
     'start-game': (data: { roomId: string }) => void;
     'chat-message': (data: { roomId: string; text: string }) => void;

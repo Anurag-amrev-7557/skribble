@@ -7,7 +7,7 @@ import { Server } from 'socket.io';
 import { setupSocketIO } from './socket/socketHandler';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = process.env.HOSTNAME || '0.0.0.0'; // Render needs 0.0.0.0
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
@@ -48,7 +48,10 @@ app.prepare().then(() => {
     // Render spins down free services after 15 min of inactivity.
     // This pings /health every 14 min to keep the instance warm.
     if (!dev) {
-      const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://${hostname}:${port}`;
+      // Self-ping needs to use 127.0.0.1 or localhost internally even if bound to 0.0.0.0
+      // OR use the external URL. 
+      // Render internal networking might accept localhost:port for the same instance.
+      const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
       const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14 minutes
 
       setInterval(async () => {

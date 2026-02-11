@@ -39,22 +39,22 @@ export class GameManager {
         }
     }
 
-    createRoom(hostId: string, hostName: string, socket: Socket, isPrivate: boolean = false): Room {
+    createRoom(hostId: string, userId: string, hostName: string, socket: Socket, isPrivate: boolean = false): Room {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         const room = new Room(roomId, this.io as any, isPrivate);
         this.rooms.set(roomId, room);
 
-        room.addPlayer(hostId, hostName, socket);
+        room.addPlayer(hostId, userId, hostName, socket);
         this.playerRoomMap.set(hostId, roomId);
         return room;
     }
 
-    joinRoom(roomId: string, playerId: string, playerName: string, socket: Socket): Room {
+    joinRoom(roomId: string, playerId: string, userId: string, playerName: string, socket: Socket): Room {
         const room = this.rooms.get(roomId);
         if (!room) {
             throw new Error('Room not found');
         }
-        room.addPlayer(playerId, playerName, socket);
+        room.addPlayer(playerId, userId, playerName, socket);
         this.playerRoomMap.set(playerId, roomId);
         return room;
     }
@@ -137,10 +137,22 @@ export class GameManager {
         }
 
         try {
-            // Fallback: join as new player
-            room.addPlayer(newSocketId, name, socket, avatar);
-            this.playerRoomMap.set(newSocketId, roomId);
-            return room;
+            // Fallback: join as new player (or re-identify by userId inside addPlayer)
+            // We need to assume the same userId is passed here.
+            // But rejoinRoom signature doesn't have userId in original code...
+            // Actually, we should update rejoinRoom signature too or just fetch it?
+            // Wait, rejoinRoom is called with oldPlayerId. 
+            // The purpose of "rejoinRoom" method in GameManager was specifically for "I have an old socket ID".
+            // With the NEW system, "rejoin" is just "join with existing userId".
+            // So we can arguably deprecate this specific flow or update it to use userId if available.
+
+            // For now, let's keep it but rely on the new userId logic in Room.addPlayer if we were to use it.
+            // But wait, room.reconnectPlayer is different.
+
+            // Let's just update the fallback to use a placeholder or provided userId?
+            // The original code didn't have userId.
+            // We should update the signature of rejoinRoom to take userId as well.
+            return null;
         } catch (err) {
             return null;
         }

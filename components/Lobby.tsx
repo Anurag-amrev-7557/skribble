@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { socket } from "@/lib/socket";
+import { socket, getUserId } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -104,7 +104,8 @@ export function Lobby() {
         const effectiveNickname = getEffectiveNickname();
         const avatarQuery = encodeURIComponent(JSON.stringify(avatarConfig));
 
-        socket.emit("create-room", { name: effectiveNickname, avatar: avatarConfig, isPrivate: true }, (response: any) => {
+        const userId = getUserId();
+        socket.emit("create-room", { name: effectiveNickname, userId, avatar: avatarConfig, isPrivate: true }, (response: any) => {
             if (response.success && response.roomId) {
                 router.push(`/${response.roomId}?name=${encodeURIComponent(effectiveNickname)}&avatar=${avatarQuery}`);
             } else {
