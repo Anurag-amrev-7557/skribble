@@ -460,8 +460,8 @@ export default function RoomPage() {
                     <div className={`
                         bg-white md:rounded-3xl shadow-lg md:shadow-2xl shadow-indigo-500/10 overflow-hidden border-2 md:border-4 border-white dark:border-zinc-800 ring-1 ring-black/5 relative transition-all touch-none
                         ${isInputFocused
-                            ? 'w-full h-auto aspect-square max-h-full md:w-full md:h-full md:max-h-none md:aspect-auto mx-auto'
-                            : 'w-full h-full md:w-full md:h-full'} 
+                            ? 'h-full w-auto max-w-full aspect-square max-h-full md:w-full md:h-full md:max-h-none md:aspect-auto mx-auto'
+                            : 'w-full h-full md:w-full md:h-full'}
                          max-w-[1200px]
                     `}>
                         <CanvasBoard
