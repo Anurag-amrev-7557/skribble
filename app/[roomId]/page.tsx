@@ -456,8 +456,14 @@ export default function RoomPage() {
                 </div>
 
                 {/* Canvas Area */}
-                <div className="flex-1 md:p-6 pt-0 flex items-center justify-center relative overflow-hidden">
-                    <div className="w-full h-full max-w-[1200px] bg-white md:rounded-3xl shadow-lg md:shadow-2xl shadow-indigo-500/10 overflow-hidden border-2 md:border-4 border-white dark:border-zinc-800 ring-1 ring-black/5 relative transition-all touch-none">
+                <div className={`flex-1 md:p-6 pt-0 flex items-center justify-center relative overflow-hidden ${isInputFocused ? 'items-start pt-12 md:pt-0' : ''}`}>
+                    <div className={`
+                        bg-white md:rounded-3xl shadow-lg md:shadow-2xl shadow-indigo-500/10 overflow-hidden border-2 md:border-4 border-white dark:border-zinc-800 ring-1 ring-black/5 relative transition-all touch-none
+                        ${isInputFocused
+                            ? 'w-full h-auto aspect-square max-h-[50vh] md:w-full md:h-full md:max-h-none md:aspect-auto'
+                            : 'w-full h-full md:w-full md:h-full'} 
+                         max-w-[1200px]
+                    `}>
                         <CanvasBoard
                             ref={canvasRef}
                             roomId={roomId}
