@@ -71,6 +71,14 @@ export class Room {
         if (this.players.size >= this.maxPlayers) {
             throw new Error('Room is full');
         }
+        // Handle duplicate names
+        let originalName = name;
+        let counter = 1;
+        while (Array.from(this.players.values()).some(p => p.name === name)) {
+            name = `${originalName} (${counter})`;
+            counter++;
+        }
+
         const player = new Player(id, name, avatar);
 
         if (this.players.size === 0) {

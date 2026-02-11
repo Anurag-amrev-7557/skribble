@@ -39,9 +39,16 @@ export default function RoomPage() {
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const mobileInputRef = useRef<HTMLInputElement>(null);
     const [isIOS, setIsIOS] = useState(false);
+    const [mobileInputText, setMobileInputText] = useState("");
 
     // Detect mobile keyboard via visualViewport API
+    const initialWindowHeight = useRef(0);
+
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            initialWindowHeight.current = window.innerHeight;
+        }
+
         const vv = window.visualViewport;
         if (!vv) return;
 
@@ -50,14 +57,16 @@ export default function RoomPage() {
 
         const handleResize = () => {
             const currentHeight = vv.height;
-            const fullHeight = window.innerHeight;
+            // Use the stored initial height for stable comparison on Android
+            const fulHeightToCheck = initialWindowHeight.current || window.innerHeight;
 
             if (isIOSDevice) {
-                const offsetFromBottom = fullHeight - currentHeight - vv.offsetTop;
+                const offsetFromBottom = fulHeightToCheck - currentHeight - vv.offsetTop;
                 setKeyboardHeight(Math.max(0, offsetFromBottom));
             } else {
                 // Android/Other: If viewport is nearly full height (keyboard closed), reset focus
-                if (currentHeight > fullHeight * 0.8) {
+                // We compare against the INITIAL full height, because window.innerHeight might shrink on Android
+                if (currentHeight > fulHeightToCheck * 0.8) {
                     setIsInputFocused(false);
                     if (document.activeElement === mobileInputRef.current) {
                         mobileInputRef.current?.blur();
@@ -344,7 +353,7 @@ export default function RoomPage() {
                                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">
                                     {gameState.state === 'WAITING' ? 'WAITING' : isDrawer ? 'DRAW THIS' : 'GUESS THIS'}
                                     <span className="ml-1 text-primary font-bold">
-                                        ({(revealedWord || gameState.maskedWord || gameState.currentWord || "").replace(/[^a-zA-Z_]/g, "").length})
+                                        ({(revealedWord || gameState.maskedWord || gameState.currentWord || "").split(' ').map((w: string) => w.replace(/[^a-zA-Z_]/g, "").length).join(' ')})
                                     </span>
                                 </div>
                                 {isDrawer ? (
@@ -386,7 +395,9 @@ export default function RoomPage() {
                                     <>
                                         <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                                             GUESS THIS
-                                            <span className="ml-1 text-primary font-bold">({(revealedWord || gameState.maskedWord || "").replace(/[^a-zA-Z_]/g, "").length})</span>
+                                            <span className="ml-1 text-primary font-bold">
+                                                ({(revealedWord || gameState.maskedWord || "").split(' ').map((w: string) => w.replace(/[^a-zA-Z_]/g, "").length).join(' ')})
+                                            </span>
                                         </div>
                                         <div className="text-2xl font-black tracking-widest flex gap-3 text-foreground/80">
                                             {(revealedWord || gameState.maskedWord || "").split('').map((char: string, i: number) => {
@@ -609,25 +620,30 @@ export default function RoomPage() {
             >
                 <form onSubmit={(e) => {
                     e.preventDefault();
-                    const form = e.currentTarget;
-                    const input = form.elements.namedItem('mobile-guess') as HTMLInputElement;
-                    const text = input.value.trim();
-                    if (!text) return;
-                    socket.emit("chat-message", { roomId, text });
-                    input.value = "";
-                }} className="flex">
+                    if (!mobileInputText.trim()) return;
+                    socket.emit("chat-message", { roomId, text: mobileInputText.trim() });
+                    setMobileInputText("");
+                }} className="flex relative">
                     <input
                         ref={mobileInputRef}
                         name="mobile-guess"
                         type="text"
                         placeholder="Type your guess here..."
-                        className="flex-1 h-12 px-4 bg-muted/50 focus:outline-none shadow-sm"
+                        className="flex-1 h-12 pl-4 pr-12 bg-muted/50 focus:outline-none shadow-sm"
                         autoComplete="off"
+                        value={mobileInputText}
+                        onChange={(e) => setMobileInputText(e.target.value)}
                         onFocus={() => setIsInputFocused(true)}
                         onBlur={() => setTimeout(() => setIsInputFocused(false), 100)}
-
-
                     />
+
+                    {/* Character Count Indicator */}
+                    {mobileInputText.length > 0 && (
+                        <div className="absolute right-14 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground bg-background/80 px-1 rounded">
+                            {mobileInputText.length}
+                        </div>
+                    )}
+
                     <Button
                         type="submit"
                         size="icon"
