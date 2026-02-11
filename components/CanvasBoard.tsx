@@ -169,8 +169,12 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
     // --- Flood Fill Algorithm ---
     const floodFill = (ctx: CanvasRenderingContext2D, startX: number, startY: number, fillColor: string) => {
+        const dpr = window.devicePixelRatio || 1;
+        const physicalX = Math.floor(startX * dpr);
+        const physicalY = Math.floor(startY * dpr);
+
         const canvas = ctx.canvas;
-        const width = canvas.width;
+        const width = canvas.width;  // This is physical width (CSS width * DPR)
         const height = canvas.height;
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
@@ -181,12 +185,12 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         const b = parseInt(hex.substring(4, 6), 16);
         const fillR = r, fillG = g, fillB = b, fillA = 255;
 
-        const p = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+        const p = (physicalY * width + physicalX) * 4;
         const startR = data[p], startG = data[p + 1], startB = data[p + 2], startA = data[p + 3];
 
         if (startR === fillR && startG === fillG && startB === fillB && startA === fillA) return;
 
-        const stack = [[Math.floor(startX), Math.floor(startY)]];
+        const stack = [[physicalX, physicalY]];
 
         while (stack.length) {
             let [x, y] = stack.pop()!;
@@ -235,7 +239,21 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         ctx.putImageData(imageData, 0, 0);
 
         function matchStartColor(pos: number) {
-            return data[pos] === startR && data[pos + 1] === startG && data[pos + 2] === startB && data[pos + 3] === startA;
+            const r = data[pos];
+            const g = data[pos + 1];
+            const b = data[pos + 2];
+            const a = data[pos + 3];
+
+            // Exact match for start color (robust enough for digital lines usually, but fuzzy if anti-aliased)
+            // If we want tolerance, we can add it here.
+            // For now, let's stick to exact match to prevent over-filling, or maybe small tolerance?
+            // Existing code was exact match.
+            // The issue reported was "fills whole background". That was likely coordinate mismatch.
+            // If the user clicks inside a circle but the coord is mapped to outside (background),
+            // then it floods background.
+            // So coordinate fix is the primary one.
+            // Let's stick to exact match for now unless requested.
+            return r === startR && g === startG && b === startB && a === startA;
         }
 
         function colorPixel(pos: number) {

@@ -40,6 +40,7 @@ export default function RoomPage() {
     const mobileInputRef = useRef<HTMLInputElement>(null);
     const [isIOS, setIsIOS] = useState(false);
     const [mobileInputText, setMobileInputText] = useState("");
+    const [visualViewportOffset, setVisualViewportOffset] = useState({ top: 0, height: 0 });
 
     // Detect mobile keyboard via visualViewport API
     const initialWindowHeight = useRef(0);
@@ -61,6 +62,9 @@ export default function RoomPage() {
             const fulHeightToCheck = initialWindowHeight.current || window.innerHeight;
 
             if (isIOSDevice) {
+                // Track viewport state for absolute positioning
+                setVisualViewportOffset({ top: vv.offsetTop, height: vv.height });
+
                 const offsetFromBottom = fulHeightToCheck - currentHeight - vv.offsetTop;
                 setKeyboardHeight(Math.max(0, offsetFromBottom));
             } else {
@@ -615,12 +619,15 @@ export default function RoomPage() {
             <div
                 className={`
                 ${isInputFocused
-                        ? (isIOS ? 'fixed left-0 right-0 z-[9999]' : 'row-start-2 col-span-2 z-[9999]')
+                        ? (isIOS ? 'fixed left-0 right-0 z-[9999]' : 'row-start-2 col-span-2 z-[9999] mb-14') // Android: Shift up with mb-14
                         : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'
                     }
                 md:hidden
                 w-full bg-background border-t transition-all duration-200`}
-                style={isInputFocused && isIOS ? { bottom: `${keyboardHeight}px` } : undefined}
+                style={isInputFocused && isIOS ? {
+                    top: `${visualViewportOffset.top + visualViewportOffset.height - 50}px`, // iOS: Top positioning (height approx 50px)
+                    bottom: 'auto'
+                } : undefined}
             >
                 <form onSubmit={(e) => {
                     e.preventDefault();
