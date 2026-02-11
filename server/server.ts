@@ -31,6 +31,11 @@ app.prepare().then(() => {
   // Setup Socket handlers
   setupSocketIO(io);
 
+  // Health check endpoint (used by keep-alive ping)
+  server.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+  });
+
   // Handle all other routes with Next.js
   server.all(/.*/, (req, res) => {
     return handle(req, res);
@@ -38,5 +43,24 @@ app.prepare().then(() => {
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
+
+    // ---------- Keep-Alive Self-Ping (Render Free Tier) ----------
+    // Render spins down free services after 15 min of inactivity.
+    // This pings /health every 14 min to keep the instance warm.
+    if (!dev) {
+      const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://${hostname}:${port}`;
+      const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14 minutes
+
+      setInterval(async () => {
+        try {
+          const res = await fetch(`${selfUrl}/health`);
+          console.log(`[Keep-Alive] Pinged ${selfUrl}/health — ${res.status}`);
+        } catch (err: any) {
+          console.error(`[Keep-Alive] Ping failed:`, err.message);
+        }
+      }, KEEP_ALIVE_INTERVAL);
+
+      console.log(`[Keep-Alive] Self-ping enabled every 14 min → ${selfUrl}/health`);
+    }
   });
 });
