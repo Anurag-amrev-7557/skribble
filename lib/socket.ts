@@ -1,10 +1,11 @@
 
 "use client";
 
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
+import { ServerToClientEvents, ClientToServerEvents } from "@/shared/socket-events";
 
 // Initialize socket connection with robust reconnection config
-export const socket = io({
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
     autoConnect: false,
 
     // Reconnection
@@ -28,22 +29,6 @@ socket.on("connect", () => {
 
 socket.on("disconnect", (reason) => {
     console.warn("[Socket] Disconnected:", reason);
-});
-
-socket.on("reconnect_attempt", (attempt) => {
-    console.log(`[Socket] Reconnection attempt ${attempt}...`);
-});
-
-socket.on("reconnect", (attempt) => {
-    console.log(`[Socket] Reconnected after ${attempt} attempt(s)`);
-});
-
-socket.on("reconnect_error", (err) => {
-    console.error("[Socket] Reconnection error:", err.message);
-});
-
-socket.on("reconnect_failed", () => {
-    console.error("[Socket] All reconnection attempts failed");
 });
 
 socket.on("connect_error", (err) => {

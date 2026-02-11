@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Skribble.io - Multiplayer Drawing & Guessing Game",
   description: "Draw, guess, and win! Skribble.io is a free multiplayer drawing and guessing game. smooth gameplay, no ads, just fun.",
   keywords: ["skribble", "drawing game", "pictionary", "multiplayer", "online game", "guess the word"],
+  manifest: "/manifest.json",
   openGraph: {
     title: "Skribble.io - Draw & Guess",
     description: "Join the fun! Draw clearly, guess quickly, and become the champion.",
@@ -24,6 +25,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icon.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

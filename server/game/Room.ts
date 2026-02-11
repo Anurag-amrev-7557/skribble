@@ -3,16 +3,7 @@ import { Socket } from 'socket.io';
 import { Player } from './Player';
 import { Server } from 'socket.io';
 import { WORDS } from './words';
-
-export enum GameState {
-    WAITING = 'WAITING',
-    SELECTING_WORD = 'SELECTING_WORD',
-    DRAWING = 'DRAWING',
-    ROUND_END = 'ROUND_END',
-    GAME_END = 'GAME_END',
-}
-
-
+import { DrawAction, GameSettings, GameState, PlayerState, RoomState } from '../../shared/socket-events';
 
 export class Room {
     public id: string;
@@ -20,23 +11,16 @@ export class Room {
     public state: GameState;
     public currentDrawer: string | null;
     public currentWord: string | null;
-    public wordOptions: string[] = []; // Store current options
-    public maskedWord: string | null; // Add maskedWord property
+    public wordOptions: string[] = [];
+    public maskedWord: string | null;
     public round: number;
     public totalRounds: number;
     public maxPlayers: number;
     public isPrivate: boolean;
     public hostId: string | null;
-    public settings: {
-        roundTime: number;
-        wordCount: number;
-        gameMode: 'NORMAL' | 'HIDDEN' | 'COMBINATION';
-        hints: boolean;
-        customWords: string[];
-        useCustomWords: boolean;
-        maxPlayers: number;
-        totalRounds?: number;
-    };
+    public settings: GameSettings;
+    public drawingHistory: DrawAction[] = []; // Store drawing history
+
     private io: Server;
     public turnIndex: number = 0;
 
@@ -67,21 +51,18 @@ export class Room {
             hints: true,
             customWords: [],
             useCustomWords: false,
-            maxPlayers: 8
+            maxPlayers: 8,
+            totalRounds: 3
         };
     }
 
     addPlayer(id: string, name: string, socket: Socket, avatar?: any): Player {
         if (this.players.has(id)) {
-            // Player already exists (re-join or StrictMode double-call)
-            // Just return existing player, do not broadcast "joined" again
             const existingPlayer = this.players.get(id)!;
-            existingPlayer.name = name; // Update name just in case
+            existingPlayer.name = name;
             if (avatar) existingPlayer.avatar = avatar;
 
-            socket.join(this.id); // Ensure joined room
-            // We might still want to send state to THIS player, but broadcastState sends to room.
-            // broadcastState is fine to call again as it's idempotent-ish (just updates UI).
+            socket.join(this.id);
             this.broadcastState();
             return existingPlayer;
         }
@@ -91,25 +72,26 @@ export class Room {
         }
         const player = new Player(id, name, avatar);
 
-        // First player is host, or if host left and new player comes (implement logic if needed, for now just first player)
         if (this.players.size === 0) {
             this.hostId = id;
         }
 
         this.players.set(id, player);
-
         socket.join(this.id);
+
+        // Send state immediately to the joining player (including history!)
+        socket.emit('room-state', this.getRoomState());
+
+        // Broadcast to others
         this.broadcastState();
 
         // Auto-start only for PUBLIC rooms
         if (!this.isPrivate && this.players.size >= 2 && this.state === GameState.WAITING) {
             console.log("Auto-starting game with 2 players...");
-            // Adding a small delay to let the UI update first
             setTimeout(() => this.startGame(), 1000);
         }
 
         console.log(`[Room ${this.id}] Broadcasting join message for ${name}`);
-        // Notify room of new player
         this.io.to(this.id).emit('chat-message', {
             sender: 'System',
             text: `${name} joined the room!`,
@@ -123,9 +105,6 @@ export class Room {
         const player = this.players.get(id);
         const name = player ? player.name : "Unknown Player";
 
-        // Fix turn skipping:
-        // If the removed player is BEFORE the current turn index (or IS the current one),
-        // we need to decrement turnIndex so that when the array shifts, we don't skip the next person.
         const playerIds = Array.from(this.players.keys());
         const removedIndex = playerIds.indexOf(id);
 
@@ -136,7 +115,6 @@ export class Room {
         this.players.delete(id);
 
         if (this.hostId === id) {
-            // Reassign host to next player
             const nextPlayerId = this.players.keys().next().value;
             if (nextPlayerId) {
                 this.hostId = nextPlayerId;
@@ -150,7 +128,6 @@ export class Room {
             }
         }
 
-        // Notify room of player leaving
         console.log(`[Room ${this.id}] Broadcasting leave message for ${name}`);
         this.io.to(this.id).emit('chat-message', {
             sender: 'System',
@@ -159,13 +136,11 @@ export class Room {
         });
 
         if (this.currentDrawer === id) {
-            // Handle drawer leaving logic: Skip turn or reset
             this.endTurn();
         }
 
         this.broadcastState();
 
-        // Auto-Stop / Reset if less than 2 players
         if (this.players.size < 2 && this.state !== GameState.WAITING && this.state !== GameState.GAME_END) {
             console.log("Not enough players. Resetting game...");
             this.resetGame();
@@ -181,7 +156,8 @@ export class Room {
         this.round = 1;
         this.turnIndex = 0;
         this.timeRemaining = 0;
-        this.players.forEach(p => p.score = 0); // Optional: reset scores
+        this.players.forEach(p => p.score = 0);
+        this.drawingHistory = []; // Clear history
 
         this.io.to(this.id).emit('chat-message', {
             sender: 'System',
@@ -192,7 +168,7 @@ export class Room {
         this.broadcastState();
     }
 
-    broadcastState() {
+    getRoomState(): RoomState {
         const playersList = Array.from(this.players.values()).map(p => ({
             id: p.id,
             name: p.name,
@@ -203,7 +179,8 @@ export class Room {
             avatar: p.avatar,
             isDisconnected: p.isDisconnected,
         }));
-        this.io.to(this.id).emit('room-state', {
+
+        return {
             id: this.id,
             players: playersList,
             state: this.state,
@@ -216,8 +193,13 @@ export class Room {
             wordOptions: this.state === GameState.SELECTING_WORD ? [] : null,
             isPrivate: this.isPrivate,
             hostId: this.hostId,
-            settings: this.settings
-        });
+            settings: this.settings,
+            drawingHistory: this.drawingHistory
+        };
+    }
+
+    broadcastState() {
+        this.io.to(this.id).emit('room-state', this.getRoomState());
     }
 
     broadcastTimer() {
@@ -225,21 +207,14 @@ export class Room {
     }
 
     startGame() {
-        if (this.players.size < 2 && !this.isPrivate) return; // Public rooms need 2 players to start
-        if (this.players.size < 2 && this.isPrivate) {
-            // For private rooms, maybe allow 1 player for testing or specific modes? 
-            // But usually skribbl needs 2. Let's allow host to start but it might end early if not enough players.
-            // Actually, let's enforce 2 players for now to be safe, or just 1 for debugging.
-        }
+        if (this.players.size < 2 && !this.isPrivate) return;
 
         console.log(`Starting game in room ${this.id}`);
         this.state = GameState.SELECTING_WORD;
         this.round = 1;
         this.turnIndex = 0;
 
-        // Apply Settings
         if (this.settings.maxPlayers) this.maxPlayers = this.settings.maxPlayers;
-        if (this.settings.roundTime) this.timeRemaining = this.settings.roundTime; // For first round? No, roundTime is per turn.
 
         this.startTurn();
     }
@@ -250,36 +225,30 @@ export class Room {
 
         console.log(`[Method: startTurn] Round: ${this.round}, TurnIndex: ${this.turnIndex}, TotalPlayers: ${playerIds.length}`);
 
-        // Round Robin
         this.currentDrawer = playerIds[this.turnIndex % playerIds.length];
 
         console.log(`[Method: startTurn] Selected Drawer: ${this.currentDrawer}`);
 
-        // Reset players
         this.players.forEach(p => p.resetRoundState());
         const drawer = this.players.get(this.currentDrawer);
         if (drawer) drawer.isDrawer = true;
 
-        // Clear Canvas for everyone
+        // Clear Canvas and History
+        this.drawingHistory = [];
         this.io.to(this.id).emit('clear-canvas');
 
-        // --- WORD SELECTION PHASE ---
         this.state = GameState.SELECTING_WORD;
         this.currentWord = null;
-        this.wordOptions = this.generateWordOptions(3); // Pick 3 random words
-        this.timeRemaining = 15; // 15 seconds to choose
+        this.wordOptions = this.generateWordOptions(3);
+        this.timeRemaining = 15;
 
-        // Notify everyone state changed
         this.broadcastState();
 
-        // Send options ONLY to drawer
         if (this.currentDrawer) {
             this.io.to(this.currentDrawer).emit('choose-word', this.wordOptions);
         }
 
-        // Start Selection Timer
         this.startTimer(() => {
-            // If time runs out, auto-select random word
             if (this.state === GameState.SELECTING_WORD) {
                 const randomWord = this.wordOptions[Math.floor(Math.random() * this.wordOptions.length)];
                 this.handleWordSelection(this.currentDrawer!, randomWord);
@@ -296,7 +265,6 @@ export class Room {
         if (this.state !== GameState.SELECTING_WORD) return;
         if (playerId !== this.currentDrawer) return;
 
-        // Security Check: Ensure word is in the options
         if (!this.wordOptions.includes(word)) {
             console.warn(`[Security] Player ${playerId} tried to select invalid word: ${word}`);
             return;
@@ -309,20 +277,48 @@ export class Room {
 
         console.log(`Word selected: ${word}`);
 
-        // Start Drawing Phase
         this.state = GameState.DRAWING;
-        this.timeRemaining = 60;
+        this.timeRemaining = this.settings.roundTime; // Use settings roundTime
 
         this.broadcastState();
 
-        // Start Game Timer
         this.startTimer(() => this.endTurn());
     }
+
+    // --- Drawing History Methods ---
+
+    addStroke(stroke: any) {
+        // Basic validation is done in manager/handler, but can check here too
+        this.drawingHistory.push({
+            type: 'stroke',
+            points: stroke.points,
+            color: stroke.color,
+            width: stroke.width
+        });
+    }
+
+    addFill(x: number, y: number, color: string) {
+        this.drawingHistory.push({
+            type: 'fill',
+            x, y, color
+        });
+    }
+
+    undoLastAction() {
+        if (this.drawingHistory.length > 0) {
+            this.drawingHistory.pop();
+        }
+    }
+
+    clearCanvas() {
+        this.drawingHistory = [];
+    }
+
+    // ----------------------------
 
     revealHint() {
         if (!this.currentWord || !this.maskedWord) return;
 
-        // Find indices of unrevealed characters ('_')
         const unrevealedIndices: number[] = [];
         for (let i = 0; i < this.maskedWord.length; i++) {
             if (this.maskedWord[i] === '_') {
@@ -331,7 +327,6 @@ export class Room {
         }
 
         if (unrevealedIndices.length > 0) {
-            // Pick random index to reveal
             const randomIndex = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
             const chars = this.maskedWord.split('');
             chars[randomIndex] = this.currentWord[randomIndex];
@@ -346,9 +341,7 @@ export class Room {
         this.timer = setInterval(() => {
             this.timeRemaining--;
 
-            // --- HINT LOGIC ---
-            // Reveal hints at specific timestamps (e.g. 45s and 20s left in a 60s round)
-            if (this.state === GameState.DRAWING) {
+            if (this.state === GameState.DRAWING && this.settings.hints) {
                 if (this.timeRemaining === 45 || this.timeRemaining === 20) {
                     this.revealHint();
                 }
@@ -365,7 +358,6 @@ export class Room {
     endTurn() {
         if (this.timer) clearInterval(this.timer);
 
-        // Check if round is over
         const playerIds = Array.from(this.players.keys());
 
         console.log(`[Method: endTurn] BEFORE Increment - Round: ${this.round}, TurnIndex: ${this.turnIndex}`);
@@ -375,20 +367,17 @@ export class Room {
         if (this.turnIndex >= playerIds.length) {
             console.log(`[Method: endTurn] End of Round reached!`);
 
-            // Check if game should end
             if (this.round >= this.totalRounds) {
                 this.endGame();
                 return;
             }
 
-            // End of Round - Increment
             this.round++;
             this.turnIndex = 0;
         }
 
         console.log(`[Method: endTurn] AFTER Increment - Round: ${this.round}, TurnIndex: ${this.turnIndex}`);
 
-        // Short pause before next turn
         this.state = GameState.ROUND_END;
         this.timeRemaining = 5;
         this.broadcastState();
@@ -402,51 +391,38 @@ export class Room {
         const player = this.players.get(playerId);
         if (!player) return;
 
-        // Rate Limiting (Spam Protection)
         const now = Date.now();
         if (now - player.lastMessageTime < 500) {
-            // Too fast (less than 500ms), ignore
             return;
         }
         player.lastMessageTime = now;
 
-        // Check if guess
         if (this.state === GameState.DRAWING && this.currentWord &&
             text.trim().toLowerCase() === this.currentWord.toLowerCase()) {
 
-            // Correct Guess!
             if (player.id !== this.currentDrawer) {
-                // Prevent multiple guesses (check if already guessed)
                 if (player.hasGuessed) return;
 
                 player.hasGuessed = true;
 
-                // --- SCORING LOGIC ---
-                // Base: 50, Max Time Bonus: 400 (if guessed instantly at 60s), Min Bonus: 0
-                // Formula: 50 + (Multiplier * TimeRemaining)
-                // Let's say Multiplier = 5
                 const scoreGain = Math.max(50, 50 + (this.timeRemaining * 5));
                 player.score += scoreGain;
                 player.lastTurnScore = scoreGain;
 
-                // Drawer Bonus: +50 per correct guess
                 const drawer = this.players.get(this.currentDrawer!);
                 if (drawer) {
                     drawer.score += 50;
                     drawer.lastTurnScore += 50;
                 }
 
-                // Notify room
                 this.io.to(this.id).emit('chat-message', {
                     sender: 'System',
                     text: `${player.name} guessed the word!`,
                     type: 'system'
                 });
 
-                // Reveal word to the successful guesser
                 this.io.to(player.id).emit('reveal-word', { word: this.currentWord });
 
-                // End turn if EVERYONE has guessed (minus drawer)
                 const allGuessed = Array.from(this.players.values())
                     .filter(p => p.id !== this.currentDrawer)
                     .every(p => p.hasGuessed);
@@ -460,7 +436,6 @@ export class Room {
             return;
         }
 
-        // Regular chat
         this.io.to(this.id).emit('chat-message', {
             sender: player.name,
             text: text,
@@ -479,7 +454,6 @@ export class Room {
 
         console.log(`Restarting game in room ${this.id}`);
 
-        // Reset Game State but keep players
         this.state = GameState.WAITING;
         this.currentDrawer = null;
         this.currentWord = null;
@@ -487,8 +461,8 @@ export class Room {
         this.round = 1;
         this.turnIndex = 0;
         this.timeRemaining = 0;
+        this.drawingHistory = [];
 
-        // Reset Player Scores
         this.players.forEach(p => {
             p.score = 0;
             p.lastTurnScore = 0;
@@ -503,9 +477,6 @@ export class Room {
         });
 
         this.broadcastState();
-
-        // Auto-start after a short delay or let host start?
-        // Let's auto-start for smooth flow since "Play Again" implies starting.
         setTimeout(() => this.startGame(), 1000);
     }
 
@@ -522,20 +493,15 @@ export class Room {
 
         if (!voter || !target || voterId === targetId) return;
 
-        // Initialize vote set if needed
         if (!target.kickVotes) {
             target.kickVotes = new Set();
         }
 
-        if (target.kickVotes.has(voterId)) {
-            // Already voted
-            return;
-        }
+        if (target.kickVotes.has(voterId)) return;
 
         target.kickVotes.add(voterId);
-
         const votes = target.kickVotes.size;
-        const required = Math.floor(this.players.size / 2) + 1; // > 50%
+        const required = Math.floor(this.players.size / 2) + 1;
 
         console.log(`[Vote Kick] ${voter.name} voted to kick ${target.name}. (${votes}/${required})`);
 
@@ -552,54 +518,23 @@ export class Room {
                 type: 'system'
             });
 
-            // Kick the player
-            // We need to emit a specific event to the kicked player so they know?
-            // "removePlayer" just handles room logic. 
-            // In socketHandler we should listen for 'kicked' or just disconnect them.
-            // For now, removing them triggers 'leave' message.
-            // But we should probably explicitly disconnect their socket if possible, 
-            // or just let them be "removed" from state and client handles redirect.
             this.removePlayer(targetId);
-
-            // If we have reference to their socket, we could force disconnect.
-            // But Room doesn't store socket directly cleanly (it has it in closure maybe but not easily accessible here without map).
-            // Actually we passed socket to addPlayer but didn't store it in Player class.
-            // Ideally Player class should store socket or socketId.
-            // For now, client will receive "room-state" where they are missing, and redirect?
-            // RoomPage checks: if (!gameState.players.find(me)) -> redirect.
         }
     }
 
     handleDrawingRating(playerId: string, rating: 'like' | 'dislike') {
         const player = this.players.get(playerId);
         if (!player) return;
-
-        // Prevent drawer from rating their own drawing (though UI should hide it)
         if (this.currentDrawer === playerId) return;
-
-        // Allow multiple ratings? Maybe throttle?
-        // For simplicity, we just broadcast. 
-        // We could store "hasRated" per turn if we want to limit to 1 per turn.
-        // Let's limit to 1 per turn for spam protection.
-        // We can add a temporary property to player or just rely on client + simple rate limit.
-        // Let's just rely on a simple check.
-
-        // Broadcast to chat
-        const action = rating === 'like' ? 'liked' : 'disliked';
 
         this.io.to(this.id).emit('chat-message', {
             sender: 'System',
-            text: `${player.name} ${action} the drawing!`,
-            type: 'feedback', // specialized type for styling if needed
+            text: `${player.name} ${rating === 'like' ? 'liked' : 'disliked'} the drawing!`,
+            type: 'feedback',
             rating: rating
         });
     }
 
-    // ---------- Reconnection Support ----------
-
-    /**
-     * Mark a player as disconnected (grace period) rather than removing immediately.
-     */
     markDisconnected(playerId: string) {
         const player = this.players.get(playerId);
         if (!player) return;
@@ -617,40 +552,32 @@ export class Room {
 
         this.broadcastState();
 
-        // If the disconnected player is the drawer, skip their turn
         if (this.currentDrawer === playerId && this.state === GameState.DRAWING) {
             console.log(`[Room ${this.id}] Drawer disconnected during drawing. Ending turn.`);
             this.endTurn();
         }
     }
 
-    /**
-     * Reconnect a player who was in the grace period.
-     * Transfers their state to the new socket ID.
-     */
     reconnectPlayer(oldPlayerId: string, newSocketId: string, name: string, socket: Socket, avatar?: any): boolean {
         const player = this.players.get(oldPlayerId);
         if (!player) return false;
 
-        // Transfer the Player to the new socket ID
         this.players.delete(oldPlayerId);
         player.id = newSocketId;
+        player.name = name; // Update name on rejoin
         player.isDisconnected = false;
         player.disconnectedAt = null;
         if (avatar) player.avatar = avatar;
         this.players.set(newSocketId, player);
 
-        // Update host reference if needed
         if (this.hostId === oldPlayerId) {
             this.hostId = newSocketId;
         }
 
-        // Update drawer reference if needed
         if (this.currentDrawer === oldPlayerId) {
             this.currentDrawer = newSocketId;
         }
 
-        // Join the socket.io room
         socket.join(this.id);
 
         console.log(`[Room ${this.id}] Player ${name} reconnected (${oldPlayerId} -> ${newSocketId})`);
@@ -660,6 +587,9 @@ export class Room {
             text: `${name} reconnected!`,
             type: 'system'
         });
+
+        // Send immediately to reconnector to ensure they get the history
+        socket.emit('room-state', this.getRoomState());
 
         this.broadcastState();
         return true;

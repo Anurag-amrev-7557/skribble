@@ -43,9 +43,15 @@ export default function RoomPage() {
         const vv = window.visualViewport;
         if (!vv) return;
 
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
         const handleResize = () => {
-            const offsetFromBottom = window.innerHeight - vv.height - vv.offsetTop;
-            setKeyboardHeight(Math.max(0, offsetFromBottom));
+            if (isIOS) {
+                const offsetFromBottom = window.innerHeight - vv.height - vv.offsetTop;
+                setKeyboardHeight(Math.max(0, offsetFromBottom));
+            } else {
+                setKeyboardHeight(0);
+            }
         };
 
         vv.addEventListener('resize', handleResize);

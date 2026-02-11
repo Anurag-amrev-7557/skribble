@@ -1,4 +1,3 @@
-
 import { Lobby } from "@/components/Lobby";
 import { PenTool, Trophy, MousePointerClick } from "lucide-react";
 

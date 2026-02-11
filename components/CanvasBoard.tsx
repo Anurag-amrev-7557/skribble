@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState, useImperativeHandle, useCallback } from "react";
@@ -5,6 +6,7 @@ import { socket } from "@/lib/socket";
 import { AlertTriangle } from "lucide-react";
 import Tesseract from 'tesseract.js';
 import throttle from 'lodash.throttle';
+import { DrawAction, Stroke } from "@/shared/socket-events";
 
 export interface CanvasBoardRef {
     clear: () => void;
@@ -18,14 +20,33 @@ interface CanvasBoardProps {
     color: string;
     lineWidth: number;
     tool: 'pen' | 'eraser' | 'fill';
+    initialHistory?: DrawAction[]; // New prop for history sync
 }
 
-export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoardProps>(({ roomId, isDrawer, currentWord, color, lineWidth, tool }, ref) => {
+export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoardProps>(({ roomId, isDrawer, currentWord, color, lineWidth, tool, initialHistory }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [warning, setWarning] = useState<string | null>(null);
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<DrawAction[]>(initialHistory || []);
     const [cursorPos, setCursorPos] = useState<{ x: number, y: number } | null>(null);
+    const historyRef = useRef<DrawAction[]>(history);
+
+    // Sync history ref
+    useEffect(() => {
+        historyRef.current = history;
+    }, [history]);
+
+    // Apply initial history when it changes (e.g. on rejoin)
+    useEffect(() => {
+        if (initialHistory && initialHistory.length > 0) {
+            setHistory(initialHistory);
+            setTimeout(() => {
+                // Redraw immediately after history update
+                if (historyRef.current) redrawCanvas(historyRef.current);
+            }, 0);
+        }
+    }, [initialHistory]);
+
 
     // Buffered Socket Emitter
     const pendingPoints = useRef<{ x: number, y: number }[]>([]);
@@ -54,17 +75,20 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
             // Keep the last point as the start of the next segment to ensure continuity
             pendingPoints.current = [points[points.length - 1]];
-        }, 32, { leading: false, trailing: true }), // 30fps is enough for networking, smooths data
+        }, 32, { leading: false, trailing: true }), // 30fps
         [roomId]
     );
 
-    const redrawCanvas = (actions: any[]) => {
+    const redrawCanvas = (actions: DrawAction[]) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
         actions.forEach(action => {
             if (action.type === 'stroke') {
@@ -73,7 +97,8 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
                 ctx.beginPath();
                 ctx.strokeStyle = color;
                 ctx.lineWidth = width;
-                // Quadratic Curve Smoothing for Redraw
+
+                // Quadratic Curve Smoothing
                 ctx.moveTo(points[0].x, points[0].y);
                 if (points.length > 2) {
                     for (let i = 1; i < points.length - 1; i++) {
@@ -83,7 +108,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
                         };
                         ctx.quadraticCurveTo(points[i].x, points[i].y, midPoint.x, midPoint.y);
                     }
-                    // Connect last point
                     ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
                 } else {
                     for (let i = 1; i < points.length; i++) {
@@ -92,7 +116,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
                 }
                 ctx.stroke();
             } else if (action.type === 'fill') {
-                // Re-apply fill
                 const { x, y, color } = action;
                 floodFill(ctx, x, y, color);
             }
@@ -102,7 +125,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
         clear: () => {
-            // ... existing clear logic implementation wrapped in function ...
             const canvas = canvasRef.current;
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
@@ -112,17 +134,16 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             socket.emit('clear-canvas', { roomId });
         },
         undo: () => {
-            // Local Undo
             setHistory(prev => {
                 const newHistory = prev.slice(0, -1);
                 redrawCanvas(newHistory);
-                socket.emit('undo-last-stroke', { roomId }); // Emitting event for sync
+                socket.emit('undo-last-stroke', { roomId });
                 return newHistory;
             });
         }
     }));
 
-    // Keyboard Shortcuts
+    // Keyboard Shortcuts (Z for Undo)
     useEffect(() => {
         if (!isDrawer) return;
 
@@ -130,17 +151,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
             const key = e.key.toLowerCase();
-            // We can't easily change 'tool' prop from here since it's passed down. 
-            // BUT, we can support Undo/Clear/Fill-via-shortcut if we had local state or callback.
-            // The prompt asked for B/E/F/Z.
-            // Since tool state is in parent, we can't switch tool here without a callback `setTool`.
-            // User didn't ask to add setTool prop, but "Drawing Power Tools" implies it works.
-            // I will assume for now only Z (Undo) and C (Clear) work locally unless I refactor parent.
-            // Wait, I can't effectively implement B/E/F without `setTool`.
-            // I'll stick to Z and C for now which are "Power Tools" enough for this file context,
-            // OR I just accept I can't do B/E/F without refactoring `RoomPage` to pass `setTool`.
-            // Let's implement Z and Shift+C.
-
             if ((e.metaKey || e.ctrlKey) && key === 'z') {
                 e.preventDefault();
                 setHistory(prev => {
@@ -154,7 +164,8 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isDrawer, roomId]); // Added roomId dep
+    }, [isDrawer, roomId]);
+
 
     // --- Flood Fill Algorithm ---
     const floodFill = (ctx: CanvasRenderingContext2D, startX: number, startY: number, fillColor: string) => {
@@ -164,14 +175,12 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
 
-        // Convert hex fillColor to RGBA
         const hex = fillColor.replace('#', '');
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
         const fillR = r, fillG = g, fillB = b, fillA = 255;
 
-        // Get start color
         const p = (Math.floor(startY) * width + Math.floor(startX)) * 4;
         const startR = data[p], startG = data[p + 1], startB = data[p + 2], startA = data[p + 3];
 
@@ -236,13 +245,45 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             data[pos + 3] = fillA;
         }
     };
-    // ----------------------------
 
-    // Listen for remote Undo/Fill
+    // Listen for remote events
     useEffect(() => {
+        const handleRemoteStroke = (stroke: Stroke) => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const { points, color, width } = stroke;
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.moveTo(points[0].x, points[0].y);
+
+            if (points.length > 2) {
+                for (let i = 1; i < points.length - 1; i++) {
+                    const midPoint = {
+                        x: (points[i].x + points[i + 1].x) / 2,
+                        y: (points[i].y + points[i + 1].y) / 2
+                    };
+                    ctx.quadraticCurveTo(points[i].x, points[i].y, midPoint.x, midPoint.y);
+                }
+                ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+            } else {
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+            }
+            ctx.stroke();
+
+            setHistory(prev => [...prev, { type: 'stroke', points, color, width }]);
+        };
+
         const handleRemoteUndo = () => {
-            // Logic for remote undo... without full history sync this is hard.
-            // For now, simpler: clear and redraw logic is local only?
             setHistory(prev => {
                 const newHistory = prev.slice(0, -1);
                 redrawCanvas(newHistory);
@@ -250,7 +291,7 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             });
         };
 
-        const handleRemoteFill = (data: any) => {
+        const handleRemoteFill = (data: { x: number, y: number, color: string }) => {
             const { x, y, color } = data;
             const canvas = canvasRef.current;
             if (!canvas) return;
@@ -260,157 +301,26 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             setHistory(prev => [...prev, { type: 'fill', x, y, color }]);
         };
 
-        socket.on('undo-last-stroke', handleRemoteUndo);
-        socket.on('fill-canvas', handleRemoteFill);
-
-        return () => {
-            socket.off('undo-last-stroke');
-            socket.off('fill-canvas');
-        };
-    }, []);
-
-
-    // Anti-Cheat: Text Detection
-    useEffect(() => {
-        if (!isDrawer || !currentWord) return;
-
-        const checkCanvasForText = async () => {
+        const handleClear = () => {
             const canvas = canvasRef.current;
             if (!canvas) return;
-
-            try {
-                const dataUrl = canvas.toDataURL();
-                const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
-                    logger: m => { } // Silence logs
-                });
-
-                const detectedText = text.trim().toUpperCase();
-                const targetWord = currentWord.toUpperCase();
-
-                if (detectedText.length > 2 && (detectedText.includes(targetWord) || /^[A-Z\s]{3,}$/.test(detectedText))) {
-                    console.log("Potential cheating detected:", detectedText);
-                    setWarning("⚠️ No writing letters! Draw only!");
-                    setTimeout(() => setWarning(null), 3000);
-                }
-            } catch (err) {
-                console.error("OCR Error:", err);
-            }
-        };
-
-        const interval = setInterval(checkCanvasForText, 5000);
-        return () => clearInterval(interval);
-    }, [isDrawer, currentWord]);
-
-    // --- Resize Observer (High DPI Support) ---
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const parent = canvas.parentElement;
-        if (!parent) return;
-
-        const handleResize = () => {
-            const { width, height } = parent.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-
-            // set canvas dimensions to physical pixels
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-
-            // set css dimensions
-            canvas.style.width = `${width}px`;
-            canvas.style.height = `${height}px`;
-
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-                // Scale all drawing operations by dpr
-                ctx.scale(dpr, dpr);
-                ctx.lineCap = "round";
-                ctx.lineJoin = "round";
-            }
-        };
-
-        const resizeObserver = new ResizeObserver(() => {
-            handleResize();
-            // Redraw history
-            redrawCanvas(historyRef.current);
-        });
-
-        resizeObserver.observe(parent);
-
-        // Initial sizing
-        handleResize();
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-    }, []);
-
-    // Sync History Ref for Resize Redraw
-    const historyRef = useRef<any[]>(history);
-    useEffect(() => { historyRef.current = history; }, [history]);
-
-
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        // Basic setup is handled in ResizeObserver, but we can reinforce it or just trust it.
-        // We rely on handleResize to set scale and size.
-        // But we might need to set lineCap/Join if context was reset manually? 
-        // Changing width/height resets context, which handleResize does.
-
-
-        const handleRemoteStroke = (stroke: any) => {
-            const { points, color, width } = stroke;
-            if (!points || points.length < 2) return;
-
-            ctx.beginPath();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
-
-            // Draw smooth curve for remote strokes too
-            ctx.moveTo(points[0].x, points[0].y);
-
-            // Simple lineTo for compatibility or implement smoothing here too. 
-            // For true smoothing, we need >2 points. 
-            // If points array is full path:
-            if (points.length > 2) {
-                for (let i = 1; i < points.length - 1; i++) {
-                    const midPoint = {
-                        x: (points[i].x + points[i + 1].x) / 2,
-                        y: (points[i].y + points[i + 1].y) / 2
-                    };
-                    ctx.quadraticCurveTo(points[i].x, points[i].y, midPoint.x, midPoint.y);
-                }
-                // Last segment
-                ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-            } else {
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(points[i].x, points[i].y);
-                }
-            }
-
-            ctx.stroke();
-
-            setHistory(prev => [...prev, { type: 'stroke', points, color, width }]);
-        };
-
-        const handleClear = () => {
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             setHistory([]);
             setWarning(null);
-        };
+        }
 
         socket.on("draw-stroke", handleRemoteStroke);
-        socket.on("clear-canvas", handleClear);
+        socket.on('undo-last-stroke', handleRemoteUndo);
+        socket.on('fill-canvas', handleRemoteFill);
+        socket.on('clear-canvas', handleClear);
 
         return () => {
             socket.off("draw-stroke");
-            socket.off("clear-canvas");
+            socket.off('undo-last-stroke');
+            socket.off('fill-canvas');
+            socket.off('clear-canvas');
         };
     }, []);
 
@@ -424,8 +334,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             clientY = (e as React.MouseEvent).nativeEvent.offsetY;
         }
 
-        // Adjust for touch if needed (since touches give screen absolute)
-        // offsetX/Y logic handles mouse well. For touch, we need bounding rect subtract.
         if ('touches' in e) {
             const rect = canvas.getBoundingClientRect();
             return {
@@ -447,24 +355,21 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         if (tool === 'fill') {
             floodFill(ctx, x, y, color);
-            const action = { type: 'fill', x, y, color };
+            const action: DrawAction = { type: 'fill', x, y, color };
             setHistory(prev => [...prev, action]);
             socket.emit('fill-canvas', { roomId, ...action });
             return;
         }
 
         setIsDrawing(true);
-
-        // Start a new path (logic reset)
         ctx.beginPath();
         ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
         ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.moveTo(x, y);
 
-        // Initialize points array for this stroke
         (canvas as any).currentStroke = [{ x, y }];
-
-        // Initialize buffer
         pendingPoints.current = [{ x, y }];
     };
 
@@ -472,7 +377,6 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Update custom cursor
         const { x, y } = getCoordinates(e, canvas);
         setCursorPos({ x, y });
 
@@ -483,24 +387,10 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
 
         const points = (canvas as any).currentStroke;
         points.push({ x, y });
-
-        // Add to buffer and request flush
         pendingPoints.current.push({ x, y });
         flushBuffer();
 
-        // High Quality Midpoint Smoothing
-        if (points.length === 2) {
-            // Second point: Draw line from P0 to Mid(P0, P1)
-            const p0 = points[0];
-            const p1 = points[1];
-            const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
-
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(mid.x, mid.y);
-            ctx.stroke();
-        } else if (points.length > 2) {
-            // Subsequent points: Draw curve from Previous Mid to New Mid
+        if (points.length > 2) {
             const p1 = points[points.length - 3];
             const p2 = points[points.length - 2];
             const p3 = points[points.length - 1];
@@ -519,29 +409,13 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
         if (!isDrawing) return;
         setIsDrawing(false);
 
-        // Save full stroke to history
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const points = (canvas as any).currentStroke;
 
-        // Finish the stroke (Draw from last mid to last point)
-        if (points && points.length > 1) {
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-                const last = points[points.length - 1];
-                const prev = points[points.length - 2];
-                const mid = { x: (prev.x + last.x) / 2, y: (prev.y + last.y) / 2 };
-
-                ctx.beginPath();
-                ctx.moveTo(mid.x, mid.y);
-                ctx.lineTo(last.x, last.y);
-                ctx.stroke();
-            }
-        }
-
         if (points && points.length > 0) {
-            const action = {
+            const action: DrawAction = {
                 type: 'stroke',
                 points: [...points],
                 color: tool === 'eraser' ? '#ffffff' : color,
@@ -550,10 +424,81 @@ export const CanvasBoard = React.memo(React.forwardRef<CanvasBoardRef, CanvasBoa
             setHistory(prev => [...prev, action]);
         }
 
-        // Flush any remaining points immediately
         flushBuffer.flush();
         pendingPoints.current = [];
     };
+
+    // Anti-Cheat: Text Detection
+    useEffect(() => {
+        if (!isDrawer || !currentWord) return;
+
+        const checkCanvasForText = async () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+
+            try {
+                const dataUrl = canvas.toDataURL();
+                // Simple optimization: only check if enough strokes?
+                if (historyRef.current.length < 5) return;
+
+                const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
+                    logger: m => { }
+                });
+
+                const detectedText = text.trim().toUpperCase();
+                const targetWord = currentWord.toUpperCase();
+
+                if (detectedText.length > 2 && (detectedText.includes(targetWord) || /^[A-Z\s]{3,}$/.test(detectedText))) {
+                    console.log("Potential cheating detected:", detectedText);
+                    setWarning("⚠️ No writing letters! Draw only!");
+                    setTimeout(() => setWarning(null), 3000);
+                }
+            } catch (err) {
+                // Ignore
+            }
+        };
+
+        const interval = setInterval(checkCanvasForText, 5000);
+        return () => clearInterval(interval);
+    }, [isDrawer, currentWord]);
+
+    // --- Resize Observer (High DPI Support) ---
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const parent = canvas.parentElement;
+        if (!parent) return;
+
+        const handleResize = () => {
+            const { width, height } = parent.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.scale(dpr, dpr);
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+            }
+            // Redraw history after resize
+            setTimeout(() => {
+                if (historyRef.current) redrawCanvas(historyRef.current);
+            }, 0);
+        };
+
+        const resizeObserver = new ResizeObserver(() => {
+            handleResize();
+        });
+
+        resizeObserver.observe(parent);
+        handleResize();
+
+        return () => resizeObserver.disconnect();
+    }, []);
 
     return (
         <div className="relative w-full h-full group touch-none select-none">

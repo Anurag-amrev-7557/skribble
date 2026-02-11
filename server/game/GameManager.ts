@@ -1,17 +1,18 @@
 
 import { Room } from './Room';
 import { Server, Socket } from 'socket.io';
+import { ClientToServerEvents, InterServerEvents, ServerToClientEvents, SocketData } from '../../shared/socket-events';
 
 const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
 
 export class GameManager {
     private rooms: Map<string, Room>;
-    private playerRoomMap: Map<string, string>; // playerId → roomId (O(1) lookup)
-    private io: Server;
+    private playerRoomMap: Map<string, string>; // playerId → roomId
+    private io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
     private cleanupInterval: NodeJS.Timeout;
-    private disconnectTimers: Map<string, NodeJS.Timeout>; // playerId → grace timer
+    private disconnectTimers: Map<string, NodeJS.Timeout>;
 
-    constructor(io: Server) {
+    constructor(io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) {
         this.io = io;
         this.rooms = new Map();
         this.playerRoomMap = new Map();
@@ -40,7 +41,7 @@ export class GameManager {
 
     createRoom(hostId: string, hostName: string, socket: Socket, isPrivate: boolean = false): Room {
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const room = new Room(roomId, this.io, isPrivate);
+        const room = new Room(roomId, this.io as any, isPrivate);
         this.rooms.set(roomId, room);
 
         room.addPlayer(hostId, hostName, socket);
@@ -48,7 +49,7 @@ export class GameManager {
         return room;
     }
 
-    joinRoom(roomId: string, playerId: string, playerName: string, socket: Socket) {
+    joinRoom(roomId: string, playerId: string, playerName: string, socket: Socket): Room {
         const room = this.rooms.get(roomId);
         if (!room) {
             throw new Error('Room not found');
@@ -85,17 +86,13 @@ export class GameManager {
 
         // No room found — create one
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const room = new Room(roomId, this.io);
+        const room = new Room(roomId, this.io as any);
         this.rooms.set(roomId, room);
 
         console.log(`Matchmaking: Created new room ${roomId}`);
         return roomId;
     }
 
-    /**
-     * Handle a player disconnect with a grace period.
-     * Marks the player as disconnected and schedules full removal.
-     */
     handleDisconnect(playerId: string) {
         const roomId = this.playerRoomMap.get(playerId);
         if (!roomId) return;
@@ -106,10 +103,8 @@ export class GameManager {
             return;
         }
 
-        // Mark as disconnected instead of removing immediately
         room.markDisconnected(playerId);
 
-        // Schedule full removal after grace period
         const timer = setTimeout(() => {
             this.disconnectTimers.delete(playerId);
             console.log(`[GameManager] Grace period expired for ${playerId}. Removing...`);
@@ -119,44 +114,30 @@ export class GameManager {
         this.disconnectTimers.set(playerId, timer);
     }
 
-    /**
-     * Handle a player reconnecting. Cancels the grace period timer
-     * and restores them in-room.
-     */
     handleReconnect(playerId: string, newSocketId: string, socket: Socket): Room | null {
-        // The old playerId may differ from newSocketId after reconnection
-        // We look up by the roomId stored in the rejoin payload (handled in socketHandler)
-        // This method is called when we know which room to rejoin
-        return null; // Handled at socketHandler level
+        return null; // Handled in rejoinRoom
     }
 
-    /**
-     * Attempt to rejoin a specific room with a new socket.
-     * Returns the room if successful, null otherwise.
-     */
     rejoinRoom(roomId: string, oldPlayerId: string, newSocketId: string, name: string, socket: Socket, avatar?: any): Room | null {
         const room = this.rooms.get(roomId);
         if (!room) return null;
 
-        // Cancel grace period timer if it exists
         const timer = this.disconnectTimers.get(oldPlayerId);
         if (timer) {
             clearTimeout(timer);
             this.disconnectTimers.delete(oldPlayerId);
         }
 
-        // Clean up old player mapping
         this.playerRoomMap.delete(oldPlayerId);
 
-        // Try to reconnect the player in the room
         const success = room.reconnectPlayer(oldPlayerId, newSocketId, name, socket, avatar);
         if (success) {
             this.playerRoomMap.set(newSocketId, roomId);
             return room;
         }
 
-        // If reconnect failed (player was already fully removed), just add as new player
         try {
+            // Fallback: join as new player
             room.addPlayer(newSocketId, name, socket, avatar);
             this.playerRoomMap.set(newSocketId, roomId);
             return room;
@@ -166,7 +147,6 @@ export class GameManager {
     }
 
     removePlayer(playerId: string) {
-        // O(1) lookup via playerRoomMap
         const roomId = this.playerRoomMap.get(playerId);
         if (roomId) {
             const room = this.rooms.get(roomId);
