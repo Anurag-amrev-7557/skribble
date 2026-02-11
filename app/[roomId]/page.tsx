@@ -111,7 +111,7 @@ export default function RoomPage() {
                 roomId,
                 name: playerName,
                 avatar: initialAvatar,
-                oldSocketId: prevId,
+                oldSocketId: prevId || undefined,
             }, (response: any) => {
                 if (response.success) {
                     setGameState(response.roomState);
