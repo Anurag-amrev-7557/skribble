@@ -319,7 +319,7 @@ export default function RoomPage() {
                 md:row-start-1 md:col-start-2 md:col-span-1 
                 flex flex-col relative 
                 ${isInputFocused && !isDrawer ? 'h-full row-span-1' : 'h-[60vh]'} 
-                md:h-auto border-b md:border-b-0 border-black/10 transition-all duration-300`}>
+                md:h-auto border-b md:border-b-0 border-black/10 transition-all duration-300 min-h-0 overflow-hidden`}>
 
                 {/* Header (Floating) */}
                 <div className="h-16 md:h-20 flex items-center justify-between px-2 md:px-8 z-20 shrink-0 border-b md:border-b-0 border-black/10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md md:bg-transparent transition-all duration-300">
@@ -460,9 +460,7 @@ export default function RoomPage() {
                     <div className={`
                         bg-white md:rounded-3xl shadow-lg md:shadow-2xl shadow-indigo-500/10 overflow-hidden border-2 md:border-4 border-white dark:border-zinc-800 ring-1 ring-black/5 relative transition-all touch-none
                         ${isInputFocused
-                            ? (isIOS
-                                ? 'w-full h-auto aspect-square' // iOS: Revert to width-based
-                                : 'h-full w-auto max-w-full aspect-square max-h-full mx-auto') // Android: Height-based
+                            ? 'w-full h-auto aspect-square'
                             : 'w-full h-full'} 
                         md:w-full md:h-full md:max-h-none md:aspect-auto max-w-[1200px]
                     `}>
