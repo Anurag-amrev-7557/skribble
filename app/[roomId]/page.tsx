@@ -625,7 +625,7 @@ export default function RoomPage() {
             <div
                 className={`
                 ${isInputFocused
-                        ? (isIOS ? 'fixed left-0 right-0 z-[9999]' : 'row-start-2 col-span-2 z-[9999] mb-14') // Android: Shift up with mb-14
+                        ? (isIOS ? 'fixed left-0 right-0 z-[9999]' : 'row-start-2 col-span-2 z-[9999]') // Android: Removed mb-14 to fix bottom padding
                         : (isDrawer ? 'row-start-4' : 'row-start-3') + ' col-span-2'
                     }
                 md:hidden
